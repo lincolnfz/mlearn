@@ -19,19 +19,19 @@ mpl.rcParams['ytick.labelsize'] = 24
 
 np.random.seed(42)
 
-n = 1000
+n = 100
 # x轴的采样点
 x = np.linspace(0, 1000, n)
 
 # 通过下面曲线加上噪声生成数据，所以拟合模型就用y了……
-#y = 2*np.sin(x) + 0.3*x**2
-y = 13.57 + 5.3*x + x**2 * 5
+y = 2*np.sin(x) + x**2 + x**4
+#y = 13.57 + 5.3*x + x**2 * 5 + x**4 * 3.2
 #y = 12.57 + 5.3*x
-y_data = y +  np.random.normal(scale=0.1, size=n)
+y_data = y +  np.random.normal(scale=9, size=n)
 
-#scaler = sklearn.preprocessing.MinMaxScaler()
-#x = scaler.fit_transform(x)
-#y_data = scaler.fit_transform(y_data)
+scaler = sklearn.preprocessing.MinMaxScaler()
+x = scaler.fit_transform(x.reshape(-1,1))
+y_data = scaler.fit_transform(y_data.reshape(-1,1))
 
 # figure()指定图表名称
 plt.figure('data')
@@ -58,14 +58,14 @@ plt.scatter(x, y_data)
 #print(x)
 #print(y_data)
 
-w = np.ones((4,1))
-#w = np.zeros((4,1))
+#w = np.ones((4,1))
+w = np.zeros((4,1))
 #print(y_data.mean(axis=0))
 y_out = y_data.reshape(y_data.size, 1)
 #x_in = np.insert( x.reshape(x.size, 1) , 0, 1, axis=1)
 x_in = []
 for item in x:
-    row =[1, item, item**2, 0**3]
+    row =[1, item, item**2, item**3]
     #print(row)
     x_in.append(row)
 #x_in = np.insert(x_in, 0, 1, axis=1)
@@ -77,41 +77,37 @@ size = x.shape[0]
 
 def error(W,X,y):
     #print(X)
-    return abs(np.dot(w.T, X)[0][0]- y_out[i][0])
+    return np.dot(w, X)[0][0]- y_out[i][0]
 
 err = 0.0
 loop = 0
-alpha = 0.000001
-diff = 0.0001
+alpha = 0.003
+diff = 0.000001
 c1 = 0.00001
 err0 = 0
 err1 = 0
 err2 = 0
 err3 = 0
 wreg = np.ones((4,1))
-wregval = 1# - alpha * c1/size
+wregval = 1#1# - alpha * c1/size
 #print(x_in.shape)
-while loop < 50:
+while loop < 500000:
     i = 0
-    err = 0
+    err = np.zeros((4,1))
     for row in x_in:
         xx = np.array(row).reshape(4,1)
         #reg = c1* np.dot(w.T, w)[0][0]
         #err = err + (np.dot(w.T, xx)[0][0] - y_out[i][0]) * xx
-        print(np.dot(w.T, xx))
-        err =  (np.dot(w.T, xx)[0][0] - y_out[i][0])
-        w = w * wregval - alpha*( err * xx)
-        '''w[0][0] = w[0][0] + w[0][0] - alpha * err[0][0] * xx[0][0]
-        w[1][0] = w[1][0] + w[1][0] - alpha * err[0][0] * xx[1][0]
-        w[2][0] = w[2][0] + w[2][0] - alpha * err[0][0] * xx[2][0]'''
+        #print(np.dot(w.T, xx))
+        #err =  err + (np.dot(w.T, xx) - y_out[i][0]) *xx
+        singerr =  np.dot(w.T, xx) - y_out[i][0]
+        w = w - alpha*( singerr * xx)
+        #print(w)
         #w = w - alpha*( err * xx)
         i = i + 1
-    #w = wreg * w - alpha* (err/100)
-    '''err = err/size
-    w[0][0] = w[0][0] - alpha * err[0][0]
-    w[1][0] = w[1][0] * wregval - alpha * err[1][0]
-    w[2][0] = w[2][0] * wregval - alpha * err[2][0]
-    w[3][0] = w[3][0] * wregval - alpha * err[3][0]'''
+        #print(err)
+    #w =  w * wregval - alpha* (err/n)
+    #print(w)
     #print(abs(err0 - w[0][0]), abs(err1 - w[1][0]), abs(err2 - w[2][0]), abs(err3 - w[3][0]))
     #break
     if abs(err0 - w[0][0]) <= diff and abs(err1 - w[1][0]) <= diff and abs(err2 - w[2][0]) <= diff and abs(err3 - w[3][0]) <= diff:

@@ -21,9 +21,9 @@ np.random.seed(42)
 x = np.linspace(0, 5, 100)
 
 # 通过下面曲线加上噪声生成数据，所以拟合模型就用y了……
-#y = 2*np.sin(x) + 0.3*x**2
-y = 13.57 + 5.3*x + x**2 * 5
-y_data = y +  np.random.normal(scale=0.3, size=100)
+y = 2*np.sin(x) + 0.3*x**2
+#y = 13.57 + 5.3*x + x**2 * 5
+y_data = y +  np.random.normal(scale=0.1, size=100)
 
 # figure()指定图表名称
 plt.figure('data')

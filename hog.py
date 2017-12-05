@@ -9,8 +9,16 @@ str = list('123456789')
 print(type(str))
 print(str[::-1])
 
+
 img = cv2.cvtColor(cv2.imread("d:/qq.png"),
                    cv2.COLOR_BGR2GRAY)
+
+img2 = img
+for i in range(3):
+    img2 = cv2.pyrDown(img2)
+    plt.imshow(img2,'gray')
+    
+img = img2
 
 cell_size = (8, 8)  # h x w in pixels
 block_size = (2, 2)  # h x w in cells
@@ -31,6 +39,9 @@ hog_feats = hog.compute(img)\
                         n_cells[0] - block_size[0] + 1,
                         block_size[0], block_size[1], nbins) \
                .transpose((1, 0, 2, 3, 4))  # index blocks by rows first
+             
+print(hog_feats.shape)
+                    
 # hog_feats now contains the gradient amplitudes for each direction,
 # for each cell of its group for each group. Indexing is by rows then columns.
 
@@ -50,6 +61,8 @@ for off_y in range(block_size[0]):
 # Average gradients
 gradients /= cell_count
 
+print(cell_count.shape)
+
 # Preview
 plt.figure()
 plt.imshow(img, cmap='gray')
@@ -61,3 +74,5 @@ plt.gca().invert_yaxis()
 plt.gca().set_aspect('equal', adjustable='box')
 plt.colorbar()
 plt.show()
+print(gradients)
+print(gradients[:, :, bin])

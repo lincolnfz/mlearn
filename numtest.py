@@ -40,7 +40,7 @@ def ridgeRegress(xMat,yMat,lam = 0.2):#在没给定lam的时候，默认为0.2
     xTx = xMat.T*xMat
     denom = xTx + np.eye(np.shape(xMat)[1])*lam
     if linalg.det(denom) == 0.0:
-        print "这个矩阵是错误的，不能求逆"
+        print("这个矩阵是错误的，不能求逆")
         return
     ws = denom.I * (xMat.T * yMat)
     return ws

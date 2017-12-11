@@ -3,6 +3,12 @@ __author__ = 'lincolnfz@gmail.com'
 
 import numpy as np
 
+def gen(tims):
+    for i in range(tims):
+        yield i
+        #print(x)
+    print('end.')
+
 if __name__ == '__main__':
     mata = np.mat(np.array([[1.0,2.0],[2.0,4.0]]))
     matb = np.mat(np.array([[4.0],[8.0]]))
@@ -19,3 +25,13 @@ if __name__ == '__main__':
     #ret = np.mat(eigvector) .T* np.mat(np.array([[6.,0.], [0., -1.] ])) * np.mat(eigvector)
     print (eigvalue, eigvector)
     #print (ret)
+    
+    f = gen(2)
+    x = next(f)
+    print(x)
+    x = next(f)
+    print(x)
+    
+    x = {'name':'lin', 'add':'fz'}
+    name = x
+    print(name)

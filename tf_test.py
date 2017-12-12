@@ -51,7 +51,7 @@ sess.run(init)
 print(sess.run(linear_model, {x: [1, 2, 3, 4]}))
 
 y = tf.placeholder(tf.float32)
-squared_deltas = tf.square(linear_model - y)
+squared_deltas = tf.square(linear_model - y) / 2
 loss = tf.reduce_sum(squared_deltas)
 
 #fixW = tf.assign(W, [-1.])
@@ -61,8 +61,8 @@ print(sess.run(loss, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]}))
 
 optimizer = tf.train.GradientDescentOptimizer(0.01)
 train = optimizer.minimize(loss)
-for i in range(1000):
-  sess.run(train, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]})
+for i in range(10000):
+    sess.run(train, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]})
   
 print(sess.run([W, b]))
 print(sess.run(loss, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]}))

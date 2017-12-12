@@ -94,7 +94,6 @@ def main():
     model = build_model(X, y, 3)
     visualize(X, y, model)
  
-main()
  
 if __name__ == "__main__":
     main()

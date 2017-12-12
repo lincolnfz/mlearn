@@ -4,6 +4,7 @@ Created on Wed Nov  1 13:49:23 2017
 
 @author: linco
 """
+#svm
 
 import numpy as np  
 from sklearn.svm import SVR  
@@ -43,4 +44,4 @@ plt.ylabel('target')
 plt.title('Support Vector Regression')  
 plt.legend()  
 plt.show()
-print(y)
+print(X)

@@ -118,7 +118,7 @@ if __name__=="__main__":
     ]
 
     processedTrainingData = trainingDataPreprocess(trainingData)
-    for
+    #for
     print(processedTrainingData)
     w = PLA(processedTrainingData)
     

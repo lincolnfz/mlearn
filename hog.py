@@ -19,7 +19,7 @@ def gamma_trans(img, gamma):
     return cv2.LUT(img, gamma_table)
 
 
-img = cv2.cvtColor(cv2.imread("d:/qq.png"),
+img = cv2.cvtColor(cv2.imread("d:/err.png"),
                    cv2.COLOR_BGR2GRAY)
 
 #归一化 采用的gamma值为0.5
@@ -54,7 +54,10 @@ hog_feats = hog.compute(img)\
                         n_cells[0] - block_size[0] + 1,
                         block_size[0], block_size[1], nbins) \
                .transpose((1, 0, 2, 3, 4))  # index blocks by rows first
+               
+print(hog_feats.shape)               
              
+#程序到这里计算茁了图像的梯度feature
 
                     
 # hog_feats now contains the gradient amplitudes for each direction,

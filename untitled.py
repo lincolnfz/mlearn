@@ -2,6 +2,9 @@
 __author__ = 'lincolnfz@gmail.com'
 
 import numpy as np
+import math
+from sympy import *
+
 
 def gen(tims):
     for i in range(tims):
@@ -35,3 +38,11 @@ if __name__ == '__main__':
     x = {'name':'lin', 'add':'fz'}
     name = x
     print(name)
+    
+    x=Symbol("x")
+    #di = diff(1/(1+x**2),x)
+    
+    #b = 8
+    #w = 9
+    d2 = diff(exp(1**(-c*((x-c2)**2)), x))
+    print(d2)

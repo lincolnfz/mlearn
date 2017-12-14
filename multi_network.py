@@ -175,7 +175,7 @@ def update_params(layers, param_grads, learning_rate):
     by gradient descent with the given learning rate.
     """
     for layer, layer_backprop_grads in zip(layers, param_grads):
-        for param, grad in zip(layer.get_params_iter(), layer_backprop_grads):
+        for param, grad in itertools.izip(layer.get_params_iter(), layer_backprop_grads):
             # The parameter returned by the iterator point to the memory space of
             #  the original layer and can thus be modified inplace.
             param -= learning_rate * grad  # Update each parameter

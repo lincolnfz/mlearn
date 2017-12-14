@@ -42,6 +42,9 @@ node2 = tf.constant(4.0) # also tf.float32 implicitly
 sess = tf.Session()
 print(sess.run([node1, node2]))
 
+node3 = tf.square(5.0)
+print("方差", sess.run([node3]))
+
 W = tf.Variable([.3], dtype=tf.float32)
 b = tf.Variable([-.3], dtype=tf.float32)
 x = tf.placeholder(tf.float32)
@@ -51,7 +54,7 @@ sess.run(init)
 print(sess.run(linear_model, {x: [1, 2, 3, 4]}))
 
 y = tf.placeholder(tf.float32)
-squared_deltas = tf.square(linear_model - y)
+squared_deltas = tf.square(y - linear_model)
 loss = tf.reduce_sum(squared_deltas)
 
 #fixW = tf.assign(W, [-1.])
@@ -61,8 +64,10 @@ print(sess.run(loss, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]}))
 
 optimizer = tf.train.GradientDescentOptimizer(0.01)
 train = optimizer.minimize(loss)
-for i in range(10000):
+for i in range(1000):
     sess.run(train, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]})
-  
+    
 print(sess.run([W, b]))
 print(sess.run(loss, {x: [1, 2, 3, 4], y: [0, -1, -2, -3]}))
+
+sess.close()

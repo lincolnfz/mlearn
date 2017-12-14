@@ -4,7 +4,7 @@ Created on Wed Nov  1 13:49:23 2017
 
 @author: linco
 """
-#svm
+# svr
 
 import numpy as np  
 from sklearn.svm import SVR  

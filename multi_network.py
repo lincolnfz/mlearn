@@ -9,7 +9,7 @@ Created on Thu Dec 14 17:32:49 2017
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn import datasets,  metrics
+from sklearn import datasets,  model_selection, metrics
 from matplotlib.colors import colorConverter, ListedColormap
 import itertools
 import collections
@@ -192,10 +192,10 @@ T = np.zeros((digits.target.shape[0],10))
 T[np.arange(len(T)), digits.target] += 1
 
 # Divide the data into a train and test set.
-X_train, X_test, T_train, T_test = cross_validation.train_test_split(
+X_train, X_test, T_train, T_test = model_selection.train_test_split(
     digits.data, T, test_size=0.4)
 # Divide the test set into a validation set and final test set.
-X_validation, X_test, T_validation, T_test = cross_validation.train_test_split(
+X_validation, X_test, T_validation, T_test = model_selection.train_test_split(
     X_test, T_test, test_size=0.5)
 
 '''

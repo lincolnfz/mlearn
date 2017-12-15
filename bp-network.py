@@ -121,8 +121,6 @@ JWh = gradient_weight_hidden(X, Eh)
 Jbh = gradient_bias_hidden(Eh)
 
 
-raise ValueError('123')
-
 #检查参数
 # Combine all parameter matrices in a list
 params = [Wh, bh, Wo, bo]

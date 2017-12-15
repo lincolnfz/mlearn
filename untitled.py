@@ -4,6 +4,7 @@ __author__ = 'lincolnfz@gmail.com'
 import numpy as np
 import math
 from sympy import *
+import itertools
 
 
 def gen(tims):
@@ -11,6 +12,9 @@ def gen(tims):
         yield i
         #print(x)
     print('end.')
+    
+def softmax(z): 
+    return np.exp(z) / np.sum(np.exp(z), axis=1, keepdims=True)    
 
 if __name__ == '__main__':
     mata = np.mat(np.array([[1.0,2.0],[2.0,4.0]]))
@@ -44,5 +48,18 @@ if __name__ == '__main__':
     
     #b = 8
     #w = 9
-    d2 = diff(exp(1**(-c*((x-c2)**2)), x))
-    print(d2)
+    #d2 = diff(exp(1**(-c*((x-c2)**2)), x))
+    #print(d2)
+    a = np.array([1,0,0,0,0,0])
+    #a = np.random.randn(6)
+    #print(np.average(a, 0))
+    x = itertools.chain(np.nditer(a, op_flags=['readwrite']))
+    #x = np.nditer(a, op_flags=['readwrite'])
+    for i in x:
+        i[...] = i
+        pass
+    
+    a = np.array([[1,0]])
+    x = softmax(a)
+    print(x)
+    print(np.sum(x) )

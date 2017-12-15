@@ -56,8 +56,11 @@ class Layer(object):
         Output layer uses targets T to compute the gradient based on the 
          output error instead of output_grad"""
         pass
+    
+    def update_params(self, param_grads, learning_rate):
+        pass
 
-
+init_var = 0.1
 class LinearLayer(Layer):
     """The linear layer performs a linear transformation to its input."""
     
@@ -65,7 +68,8 @@ class LinearLayer(Layer):
         """Initialize hidden layer parameters.
         n_in is the number of input variables.
         n_out is the number of output variables."""
-        self.W = np.random.randn(n_in, n_out) * 0.1
+        self.W = np.random.randn(n_in, n_out) * init_var
+        #self.b = np.random.randn(n_out) * init_var #* init_var np.zeros(n_out)
         self.b = np.zeros(n_out)
         
     def get_params_iter(self):
@@ -86,6 +90,22 @@ class LinearLayer(Layer):
     def get_input_grad(self, Y, output_grad):
         """Return the gradient at the inputs of this layer."""
         return output_grad.dot(self.W.T)
+    
+    def update_params(self, param_grads, learning_rate):
+        i = 0
+        x = self.get_params_iter()
+        #print('bef w', self.W)
+        #print('grad', param_grads)
+        for param in x:
+            #print('before', param)
+            param_out = param - (learning_rate * param_grads[i])
+            param[...] = param_out
+            #if i < 10:
+            #    print('test parm', param_out)
+            #print('after', param_grads[i])
+            i = i + 1
+        #print('after w', self.W)
+        #print('rate', learning_rate)
 
 class LogisticLayer(Layer):
     """The logistic layer applies the logistic function to its inputs."""
@@ -174,11 +194,13 @@ def update_params(layers, param_grads, learning_rate):
     Function to update the parameters of the given layers with the given gradients
     by gradient descent with the given learning rate.
     """
+    '''itertools.izip 在py3.x后不能使用'''
     for layer, layer_backprop_grads in zip(layers, param_grads):
-        for param, grad in itertools.izip(layer.get_params_iter(), layer_backprop_grads):
+        #for param, grad in itertools.izip(layer.get_params_iter(), layer_backprop_grads):
             # The parameter returned by the iterator point to the memory space of
             #  the original layer and can thus be modified inplace.
-            param -= learning_rate * grad  # Update each parameter
+        #    param -= learning_rate * grad  # Update each parameter
+        layer.update_params(layer_backprop_grads, learning_rate)
 
 
 #加载数据
@@ -265,7 +287,7 @@ print('No gradient errors found')
 在下面的代码中，我们将最小批处理单位设置成25，并且将输入数据和目标数据打包成一个元祖输入到网络中。
 '''
 # Create the minibatches
-batch_size = 100  # Approximately 25 samples per batch
+batch_size = 25  # Approximately 25 samples per batch
 nb_of_batches = X_train.shape[0] / batch_size  # Number of batches
 # Create batches (X,Y) from the training set
 XT_batches = zip(

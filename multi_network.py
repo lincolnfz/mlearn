@@ -287,7 +287,7 @@ print('No gradient errors found')
 在下面的代码中，我们将最小批处理单位设置成25，并且将输入数据和目标数据打包成一个元祖输入到网络中。
 '''
 # Create the minibatches
-batch_size = 25  # Approximately 25 samples per batch
+batch_size = 200  # Approximately 25 samples per batch
 nb_of_batches = X_train.shape[0] / batch_size  # Number of batches
 # Create batches (X,Y) from the training set
 XT_batches = zip(
@@ -305,7 +305,7 @@ training_costs = []
 validation_costs = []
 
 max_nb_of_iterations = 300  # Train for a maximum of 300 iterations
-learning_rate = 0.1  # Gradient descent learning rate
+learning_rate = 0.01  # Gradient descent learning rate
 
 # Train for the maximum number of iterations
 for iteration in range(max_nb_of_iterations):

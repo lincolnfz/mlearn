@@ -31,6 +31,10 @@ def max_pool_2x2(x):
                         strides=[1, 2, 2, 1], padding='SAME')
   
 
+x = tf.placeholder(tf.float32, shape=[None, 784])
+'''训练模型'''
+y_ = tf.placeholder("float", shape=[None,10])
+
 #First Convolutional Layer
 W_conv1 = weight_variable([5, 5, 1, 32])
 b_conv1 = bias_variable([32])

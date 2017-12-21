@@ -2,6 +2,7 @@ import numpy as np
 import sklearn.preprocessing as prep
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+import matplotlib.pyplot as plt  
 
 #from tensorflow.contrib.factorization.examples.mnist import fill_feed_dict
 
@@ -47,6 +48,18 @@ class AdditiveGaussianNoiseAutoencoder(object):
         all_weights['b2'] = tf.Variable(tf.zeros([self.n_input],
                                                  dtype=tf.float32))
         return all_weights
+    
+    def _encode(self):
+        lay1 = self.transfer(tf.add(tf.matmul(
+            self.x + self.scale * tf.random_normal((self.n_input,)),
+            self.weights['w1']),self.weights['b1']))
+        return lay1
+    
+    def _decode(self):
+        lay1 = tf.add(tf.matmul(self.n_hidden,
+                            self.weights['w2']),self.weights['b2'])
+        return lay1
+    
     def partial_fit(self,X):
         cost,opt = self.sess.run((self.cost,self.optimizer),
                                  feed_dict = {self.x:X,self.scale:self.training_scale})
@@ -118,6 +131,20 @@ for epoch in range(training_epochs):
         
 
 print("Total cost:"+str(autoencoder.calc_total_cost(X_test)))
+
+examples_to_show = 10
+
+testdata = mnist.test.images[:examples_to_show]
+
+out = autoencoder.reconstruct(testdata)
+#print(mnist.test.images[0].shape)
+
+f, a = plt.subplots(2, 10, figsize=(10, 2))  
+for i in range(examples_to_show):
+    a[0][i].imshow(np.reshape(mnist.test.images[i], (28, 28)))  
+    a[1][i].imshow(np.reshape(out[i], (28, 28)))  
+    pass
+plt.show()
         
     
 

@@ -2,6 +2,7 @@ import numpy as np
 import sklearn.preprocessing as prep
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+import matplotlib.pyplot as plt  
 
 #from tensorflow.contrib.factorization.examples.mnist import fill_feed_dict
 
@@ -29,7 +30,11 @@ class AdditiveGaussianNoiseAutoencoder(object):
         self.reconstruction = self._decode()
         
         #cost损失函数
+        '''
         self.cost = 0.5 * tf.reduce_sum(tf.pow(tf.subtract(
+            self.reconstruction,self.x),2.0))
+        '''
+        self.cost = tf.reduce_mean(tf.pow(tf.subtract(
             self.reconstruction, self.x),2.0))
         self.optimizer = optimizer.minimize(self.cost)
         
@@ -70,8 +75,22 @@ class AdditiveGaussianNoiseAutoencoder(object):
         layer_1 = tf.add( tf.matmul(self.n_hidden, self.weights['decode_h1']), self.weights['decode_b1'] )
         #print('decode1')
         layer_2 = tf.add( tf.matmul(layer_1, self.weights['decode_h2']), self.weights['decode_b2'] )
-        #print('decode')
         return layer_2
+    
+    def pred(self, pred_x):
+        '''layer_h_1 = self.transfer(tf.add(
+                tf.matmul(pred_x + self.training_scale * tf.random_normal((self.n_input,)), self.weights['encoder_h1'] ), 
+                self.weights['encode_b1']))
+        layer_h_2 = self.transfer(tf.add(
+                tf.matmul(layer_h_1, self.weights['encoder_h2'] ), 
+                self.weights['encode_b2']))
+        
+        layer_o_1 = tf.add( tf.matmul(layer_h_2, self.weights['decode_h1']), self.weights['decode_b1'] )
+        #print('decode1')
+        layer_o_2 = tf.add( tf.matmul(layer_o_1, self.weights['decode_h2']), self.weights['decode_b2'] )'''
+        decode = self.sess.run(self.reconstruction,
+                                 feed_dict = {self.x: pred_x, self.scale:self.training_scale})
+        return decode
     
     def partial_fit(self,X):
         cost,opt = self.sess.run((self.cost,self.optimizer),
@@ -98,7 +117,7 @@ class AdditiveGaussianNoiseAutoencoder(object):
                                                             self.scale:self.training_scale
                                                             })
     def getWeights(self):
-        return self.sess.run(self.weights['w1'])
+        return self.sess.run(self.weights)
     
     def getBiases(self):
         return self.sess.run(self.weights['b1'])
@@ -126,8 +145,8 @@ display_step = 1
 
 
 autoencoder = AdditiveGaussianNoiseAutoencoder(n_input=784,
-                                               n_hidden_1=400,
-                                               n_hidden_2 = 200,
+                                               n_hidden_1=256,
+                                               n_hidden_2 = 128,
                                                transfer_function=tf.nn.softplus,
                                                optimizer=tf.train.AdamOptimizer(learning_rate=0.001),
                                                scale=0.01)
@@ -146,6 +165,20 @@ for epoch in range(training_epochs):
         
 
 print("Total cost:"+str(autoencoder.calc_total_cost(X_test)))
+
+examples_to_show = 10
+
+testdata = mnist.test.images[:examples_to_show]
+
+out = autoencoder.pred(testdata)
+#print(mnist.test.images[0].shape)
+
+f, a = plt.subplots(2, 10, figsize=(10, 2))  
+for i in range(examples_to_show):
+    a[0][i].imshow(np.reshape(mnist.test.images[i], (28, 28)))  
+    a[1][i].imshow(np.reshape(out[i], (28, 28)))  
+    pass
+plt.show()
         
     
 

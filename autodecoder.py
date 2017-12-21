@@ -22,6 +22,13 @@ n_input = 784
   
 # tf Graph input (only pictures)  
 X = tf.placeholder("float", [None, n_input])  
+
+def xavier_init(fan_in,fan_out,const=1):
+    low = -const * np.sqrt(6.0 / (fan_in + fan_out))
+    high = const * np.sqrt(6.0 / (fan_in + fan_out))
+    return tf.random_uniform((fan_in, fan_out),
+                              minval=low,maxval=high,
+                              dtype=tf.float32)
   
 # 用字典的方式存储各隐藏层的参数  
 n_hidden_1 = 256 # 第一编码层神经元个数  
@@ -29,10 +36,10 @@ n_hidden_2 = 128 # 第二编码层神经元个数
 # 权重和偏置的变化在编码层和解码层顺序是相逆的  
 # 权重参数矩阵维度是每层的 输入*输出，偏置参数维度取决于输出层的单元数  
 weights = {  
-    'encoder_h1': tf.Variable(tf.random_normal([n_input, n_hidden_1])),  
-    'encoder_h2': tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),  
-    'decoder_h1': tf.Variable(tf.random_normal([n_hidden_2, n_hidden_1])),  
-    'decoder_h2': tf.Variable(tf.random_normal([n_hidden_1, n_input])),  
+    'encoder_h1': tf.Variable(xavier_init(n_input, n_hidden_1)),  
+    'encoder_h2': tf.Variable(xavier_init(n_hidden_1, n_hidden_2)),  
+    'decoder_h1': tf.Variable(xavier_init(n_hidden_2, n_hidden_1)),  
+    'decoder_h2': tf.Variable(xavier_init(n_hidden_1, n_input)),  
 }  
 biases = {  
     'encoder_b1': tf.Variable(tf.random_normal([n_hidden_1])),  
@@ -70,6 +77,10 @@ y_true = X
 # 定义代价函数和优化器  
 cost = tf.reduce_mean(tf.pow(y_true - y_pred, 2)) #最小二乘法  
 optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)  
+
+def get_random_block_from_data(data,batch_size):
+    start_index = np.random.randint(0,len(data)-batch_size)
+    return data[start_index:(start_index+batch_size)]
   
 with tf.Session() as sess:  
     # tf.initialize_all_variables() no long valid from  

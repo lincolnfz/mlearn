@@ -45,19 +45,19 @@ class AdditiveGaussianNoiseAutoencoder(object):
         all_weights = dict()
         all_weights['encoder_h1'] = tf.Variable(xavier_init(self.n_input,
                                                      self.n_hidden_1))
-        all_weights['encode_b1'] = tf.Variable(tf.random_normal([self.n_hidden_1],
+        all_weights['encode_b1'] = tf.Variable(tf.zeros([self.n_hidden_1],
                                                   dtype=tf.float32))
         all_weights['encoder_h2'] = tf.Variable(xavier_init(self.n_hidden_1,
                                                      self.n_hidden_2))
-        all_weights['encode_b2'] = tf.Variable(tf.random_normal([self.n_hidden_2],
+        all_weights['encode_b2'] = tf.Variable(tf.zeros([self.n_hidden_2],
                                                   dtype=tf.float32))
         all_weights['decode_h1'] = tf.Variable(xavier_init(self.n_hidden_2,
                                                   self.n_hidden_1))
-        all_weights['decode_b1'] = tf.Variable(tf.random_normal([self.n_hidden_1],
+        all_weights['decode_b1'] = tf.Variable(tf.zeros([self.n_hidden_1],
                                                  dtype=tf.float32))
         all_weights['decode_h2'] = tf.Variable(xavier_init(self.n_hidden_1,
                                                   self.n_input))
-        all_weights['decode_b2'] = tf.Variable(tf.random_normal([self.n_input],
+        all_weights['decode_b2'] = tf.Variable(tf.zeros([self.n_input],
                                                  dtype=tf.float32))
         return all_weights
     
@@ -145,8 +145,8 @@ display_step = 1
 
 
 autoencoder = AdditiveGaussianNoiseAutoencoder(n_input=784,
-                                               n_hidden_1=256,
-                                               n_hidden_2 = 128,
+                                               n_hidden_1=336,
+                                               n_hidden_2 = 200,
                                                transfer_function=tf.nn.softplus,
                                                optimizer=tf.train.AdamOptimizer(learning_rate=0.001),
                                                scale=0.01)
@@ -156,6 +156,7 @@ for epoch in range(training_epochs):
     total_batch=int(n_samples / batch_size)
     for i in range(total_batch):
         batch_xs = get_random_block_from_data(X_train, batch_size)
+        #batch_xs, batch_ys = mnist.train.next_batch(batch_size)
         cost = autoencoder.partial_fit(batch_xs)
         avg_cost += cost / n_samples*batch_size
         
@@ -168,20 +169,20 @@ print("Total cost:"+str(autoencoder.calc_total_cost(X_test)))
 
 examples_to_show = 10
 
-testdata = mnist.test.images[:examples_to_show]
+#testdata = mnist.test.images[:examples_to_show]
 
-out = autoencoder.pred(testdata)
+out = autoencoder.pred(X_test)
 #print(mnist.test.images[0].shape)
 
 f, a = plt.subplots(2, 10, figsize=(10, 2))  
 for i in range(examples_to_show):
-    a[0][i].imshow(np.reshape(mnist.test.images[i], (28, 28)))  
+    a[0][i].imshow(np.reshape(X_test[i], (28, 28)))  
     a[1][i].imshow(np.reshape(out[i], (28, 28)))  
     pass
 plt.show()
         
     
-
+print(X_test[0])
 
 
 

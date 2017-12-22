@@ -134,14 +134,13 @@ print("Total cost:"+str(autoencoder.calc_total_cost(X_test)))
 
 examples_to_show = 10
 
-testdata = mnist.test.images[:examples_to_show]
 
-out = autoencoder.reconstruct(testdata)
+out = autoencoder.reconstruct(X_test)
 #print(mnist.test.images[0].shape)
 
 f, a = plt.subplots(2, 10, figsize=(10, 2))  
 for i in range(examples_to_show):
-    a[0][i].imshow(np.reshape(mnist.test.images[i], (28, 28)))  
+    a[0][i].imshow(np.reshape(X_test[i], (28, 28)))  
     a[1][i].imshow(np.reshape(out[i], (28, 28)))  
     pass
 plt.show()

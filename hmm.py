@@ -55,11 +55,52 @@ class hmm(object):
         prob =  np.multiply(beta.T[0], oserver_prob.T[seq[-1]].T )
         prob = np.sum(np.multiply(prob, start_prob))
         return beta, prob
+    
+    def r(self, alpha, beta):
+        ri = np.multiply(alpha, beta)
+        return np.true_divide(ri, np.sum(ri, axis=0))
+    
+    def next_prob(self, alpha, move_prob, oserver_prob, beta, seq):
+        den = np.sum(alpha[:,-1])
+        idx_i = 0
+        n_prob = list()
+        for i in seq:
+            b_temp = np.multiply(oserver_prob.T[seq[idx_i+1]], beta.T[seq[idx_i+1]])
+            #print(b_temp.shape)
+            alpha_tmp = alpha[::,idx_i]
+            idx_j = 0
+            state_prob = list()
+            for j in alpha_tmp:
+                #print(j)
+                #print(np.multiply(move_prob[idx_j], b_temp))
+                #print(np.multiply(move_prob[idx_j], b_temp) * j)
+                state_prob.append(np.multiply(move_prob[idx_j], b_temp) * j / den)
+                idx_j += 1
+            n_prob.append(np.array(state_prob))        
+            #print(move_prob[0])
+            #alpha_tmp = alpha_tmp.reshape(alpha_tmp.shape[-1], -1)
+            #print(alpha_tmp.shape)
+            
+            idx_i += 1
+            if idx_i >= seq.shape[-1]-1:
+                #idx_i += 1
+                break;
+        n_prob = np.array(n_prob)
+        #print(n_prob)
+        return n_prob
 
 if __name__ == '__main__':
     test = hmm()
     alpha, prob = test.forward(pi, a, b, seq)
-    print(prob)
+    #print(prob)
     beta, prob = test.backward(pi, a, b, seq)
-    print(prob)
+    #print(prob)
+    r = test.r(alpha, beta)
+    #print(r)
+    n_prob = test.next_prob(alpha, a, b, beta, seq)
+    print(n_prob)
+    #print(n_prob[0, 2, 2])
+    #print(beta)
+    #print(b)
+    #print(a)
     #print(ax)

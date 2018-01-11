@@ -119,11 +119,28 @@ class hmm(object):
             psi.append(np.array(psi_tmp))
             idx_i += 1
         
+        ichain = list()
+        last_i  = np.where(zeta[-1] == np.max(zeta[-1]))
+        last_i = last_i[0][0]
+        ichain.append(last_i)
+        
+        
+        for i in psi[-1::-1]:
+            last_i = i[last_i]
+            ichain.append(last_i)
+        
+        ichain.pop()
+        ichain = ichain[-1::-1]
+        print(ichain)
+        #print(zeta[-1])
+        
         zeta = np.array(zeta).T
         psi = np.array(psi).T
-        print(zeta)
+        
+        #print(np.max(zeta, axis=0)[-1])
+        #print(zeta)
         print(psi)
-        return zeta, psi
+        return zeta, psi, ichain
 
 if __name__ == '__main__':
     test = hmm()

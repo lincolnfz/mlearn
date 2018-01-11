@@ -17,7 +17,7 @@ b = np.array([[0.5, 0.5], [0.4, 0.6], [0.7, 0.3]])
 a = np.array([[0.5, 0.2, 0.3],[0.3, 0.5, 0.2],[0.2, 0.3, 0.5]])
 
 #观测序列
-seq = np.array([0, 1, 0, 1])
+seq = np.array([0, 1, 0])
 
 class hmm(object):
 
@@ -60,8 +60,8 @@ class hmm(object):
         ri = np.multiply(alpha, beta)
         return np.true_divide(ri, np.sum(ri, axis=0))
     
-    def next_prob(self, alpha, move_prob, oserver_prob, beta, seq):
-        den = np.sum(alpha[:,-1])
+    def prob_seq(self, alpha, move_prob, oserver_prob, beta, seq):
+        #den = np.sum(alpha[:,-1])
         idx_i = 0
         n_prob = list()
         for i in seq:
@@ -74,33 +74,70 @@ class hmm(object):
                 #print(j)
                 #print(np.multiply(move_prob[idx_j], b_temp))
                 #print(np.multiply(move_prob[idx_j], b_temp) * j)
-                state_prob.append(np.multiply(move_prob[idx_j], b_temp) * j / den)
+                state_prob.append(np.multiply(move_prob[idx_j], b_temp) * j)
                 idx_j += 1
-            n_prob.append(np.array(state_prob))        
+            n_prob.append(np.array(state_prob))
             #print(move_prob[0])
             #alpha_tmp = alpha_tmp.reshape(alpha_tmp.shape[-1], -1)
             #print(alpha_tmp.shape)
             
             idx_i += 1
+            #print(idx_i, seq.shape[-1])
             if idx_i >= seq.shape[-1]-1:
                 #idx_i += 1
                 break;
         n_prob = np.array(n_prob)
         #print(n_prob)
         return n_prob
+    
+    def viterbi(self, start_prob, move_prob, oserver_prob, seq):
+        zeta = list()
+        psi = list()
+        zeta_tmp = start_prob * oserver_prob.T[seq[0]]
+        zeta.append( zeta_tmp )
+        psi_tmp = np.zeros(shape=(start_prob.shape[-1]))
+        psi.append(psi_tmp)
+        idx_i = 0
+        for i in seq:
+            if idx_i == 0:
+                idx_i += 1
+                continue
+            idx_j = 0
+            zeta_tmp_l = list()
+            #psi_tmp_pos = list()
+            psi_tmp = []
+            for j in range(start_prob.shape[-1]):
+                psi_tmp_l = zeta_tmp * move_prob.T[idx_j]
+                zeta_max = np.max(psi_tmp_l)
+                re = np.where(psi_tmp_l == np.max(psi_tmp_l))
+                #print(re[0][0])
+                psi_tmp.append(re[0][0])
+                zeta_tmp_l.append(zeta_max * oserver_prob[idx_j][i] )
+                idx_j += 1
+            zeta_tmp = np.array(zeta_tmp_l)
+            zeta.append(zeta_tmp)
+            psi.append(np.array(psi_tmp))
+            idx_i += 1
+        
+        zeta = np.array(zeta).T
+        psi = np.array(psi).T
+        print(zeta)
+        print(psi)
+        return zeta, psi
 
 if __name__ == '__main__':
     test = hmm()
     alpha, prob = test.forward(pi, a, b, seq)
-    #print(prob)
+    #print(alpha)
     beta, prob = test.backward(pi, a, b, seq)
     #print(prob)
     r = test.r(alpha, beta)
     #print(r)
-    n_prob = test.next_prob(alpha, a, b, beta, seq)
-    print(n_prob)
-    #print(n_prob[0, 2, 2])
-    #print(beta)
-    #print(b)
-    #print(a)
-    #print(ax)
+    n_prob = test.prob_seq(alpha, a, b, beta, seq)
+    #print(n_prob)
+    test.viterbi(pi, a, b, seq)
+    #print(np.sum(n_prob, axis=2))
+    #print(np.sum(n_prob, axis=2))
+    #dd = np.sum(n_prob, axis=2)
+    #print(np.sum(dd, axis=1))
+    #df = np.sum(dd, axis=1)

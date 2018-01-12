@@ -74,9 +74,11 @@ class hmm(object):
                 #print(j)
                 #print(np.multiply(move_prob[idx_j], b_temp))
                 #print(np.multiply(move_prob[idx_j], b_temp) * j)
-                state_prob.append(np.multiply(move_prob[idx_j], b_temp) * j)
+                state_prob.append(np.multiply(move_prob[idx_j], b_temp) * j)                
                 idx_j += 1
-            n_prob.append(np.array(state_prob))
+            state_prob = np.array(state_prob)
+            state_prob = state_prob / np.sum(state_prob)
+            n_prob.append(state_prob)
             #print(move_prob[0])
             #alpha_tmp = alpha_tmp.reshape(alpha_tmp.shape[-1], -1)
             #print(alpha_tmp.shape)
@@ -131,7 +133,7 @@ class hmm(object):
         
         ichain.pop()
         ichain = ichain[-1::-1]
-        print(ichain)
+        #print(ichain)
         #print(zeta[-1])
         
         zeta = np.array(zeta).T
@@ -139,22 +141,27 @@ class hmm(object):
         
         #print(np.max(zeta, axis=0)[-1])
         #print(zeta)
-        print(psi)
+        #print(psi)
         return zeta, psi, ichain
 
 if __name__ == '__main__':
     test = hmm()
     alpha, prob = test.forward(pi, a, b, seq)
     #print(alpha)
+    print(prob)
     beta, prob = test.backward(pi, a, b, seq)
     #print(prob)
     r = test.r(alpha, beta)
     #print(r)
     n_prob = test.prob_seq(alpha, a, b, beta, seq)
-    #print(n_prob)
+    print(n_prob)
+    #print( np.sum(n_prob, axis = 1) )
+    #oo = np.sum(n_prob, axis = 1)
+    #print( np.sum(oo, axis = 1) )
     test.viterbi(pi, a, b, seq)
     #print(np.sum(n_prob, axis=2))
     #print(np.sum(n_prob, axis=2))
     #dd = np.sum(n_prob, axis=2)
     #print(np.sum(dd, axis=1))
     #df = np.sum(dd, axis=1)
+    

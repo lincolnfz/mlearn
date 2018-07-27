@@ -13,6 +13,8 @@ import subprocess
 import json
 import os
 
+
+db_pass = '123abc'
  
 def read_mysql_and_insert():
     
@@ -45,7 +47,7 @@ def read_mysql_and_insert():
     return df
 
 def read_mysql_and_insert_2():
-    conn = pymysql.connect(host='localhost', user='root', password='123abc',
+    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
     sql = 'select exchange_id, name from symbol'
@@ -57,13 +59,17 @@ def read_mysql_and_insert_2():
     return df
 
 def calcadfroot(exchage_id, name ):
-    conn = pymysql.connect(host='localhost', user='root', password='123abc',
+    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
     sql = 'select * from daily_price where symbol_id = \'{id}\'  and price_date >= \'2016-01-01\'  order by price_date '.format(id=exchage_id)
     df = pd.read_sql(sql, con=conn)
     #print(df['close_price'])
+    #print(df)
+    if df.empty:
+        return False
+
     series = pd.Series(data=df['close_price'])
     diff = series.diff(1)[1:] # dta[0] is nan
     #print(diff)
@@ -126,17 +132,23 @@ def calcconit(ll):
 
 
 def coint_2stocks(id1, id2):
-    conn = pymysql.connect(host='localhost', user='root', password='123abc',
+    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
     sql = 'select * from daily_price where symbol_id = \'{id}\' order by price_date'.format(id=id1)
     df1 = pd.read_sql(sql, con=conn, index_col='price_date')
+    if  df1.empty:
+        return 1.0
     #series1 = pd.Series(data=df1['close_price'])
     d1 = df1.loc[:, 'close_price']
+    
 
     sql = 'select * from daily_price where symbol_id = \'{id}\' order by price_date'.format(id=id2)
     df2 = pd.read_sql(sql, con=conn, index_col='price_date')
+    if df2.empty:
+        return 1.0
+
     #series2 = pd.Series(data=df2['close_price'])
     d2 = df2.loc[:, 'close_price']
 
@@ -159,7 +171,7 @@ def coint_2stocks(id1, id2):
     return pvalue
 
 def calc2stock(id1, id2):
-    conn = pymysql.connect(host='localhost', user='root', password='123abc',
+    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
@@ -213,6 +225,53 @@ def calc2stock(id1, id2):
 def zscore(series):
     return (series - series.mean()) / np.std(series)
 
+def trainStock(stockid, slice_size):
+    slice_size += 1
+    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
+                             db='share_market',charset='utf8mb4',
+                             cursorclass=pymysql.cursors.DictCursor)
+
+    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' order by price_date'.format(id=stockid)
+    df = pd.read_sql(sql, con=conn, index_col='price_date')
+    while True:
+        if df.empty:
+            break
+        #for idx in df.index:
+        #    print(idx)
+        total_slice = len(df.index) - slice_size + 1
+        X = None
+        Y = None
+        for idx in  range(total_slice):
+            x = df.iloc[idx:idx+slice_size-1]
+            y = df.iloc[idx+slice_size-1]
+            #x = x.reset_index()
+            x_combin = x.iloc[0]
+            #print(x_combin)
+            #print(x_combin)
+            for x_i in range(len(x.index)-1):
+                x_item = x.iloc[x_i+1]
+                x_combin = pd.concat( [x_combin, x_item], axis=1 )
+            #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
+            #print(x_combin , y)
+            #break
+            #X.append(x_combin)
+            #Y.append(y)
+            if X is None:
+                X = x_combin
+            else:
+                X = pd.concat([X, x_combin], axis=0)
+
+            if Y is None:
+                Y = y
+            else:
+                Y = pd.concat([Y, y], axis=0 )
+
+        #print(len(X.index))
+        #print(len(Y.index))
+        #print(X)
+        break
+    conn.close()
+
 if __name__ == '__main__':
     '''# Test 1
     # 定义数据
@@ -234,6 +293,8 @@ if __name__ == '__main__':
         df = read_mysql_and_insert_2()
         for idx in df.index:
             row = df.loc[idx, ['exchange_id','name']]
+            if row is None:
+                continue
             ret = calcadfroot(row[0], row[1])
             if ret == True:
                 item = { 'id': row[0], 'name': row[1] }
@@ -241,6 +302,8 @@ if __name__ == '__main__':
 
         with open('data.json', 'w') as f:
             json.dump(ll, f)
-    calcconit(ll)
+    #calcconit(ll)
+    trainStock('601857', 5)
+    
     #print(df.head())
 

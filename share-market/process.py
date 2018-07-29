@@ -250,27 +250,29 @@ def trainStock(stockid, slice_size):
             #print(x_combin)
             for x_i in range(len(x.index)-1):
                 x_item = x.iloc[x_i+1]
-                x_combin = pd.concat( [x_combin, x_item], axis=1 )
+                x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
-            #print(x_combin , y)
+            #print(x_combin)
             #break
             #X.append(x_combin)
             #Y.append(y)
             if X is None:
                 X = x_combin
             else:
-                X = pd.concat([X, x_combin], axis=0)
+                X = pd.concat([X, x_combin], axis=1)
 
             if Y is None:
                 Y = y
             else:
-                Y = pd.concat([Y, y], axis=0 )
+                Y = pd.concat([Y, y], axis=1 )
 
         #print(len(X.index))
         #print(len(Y.index))
-        #print(X)
+        #print(X.T)
+        #print(Y.T)
         break
     conn.close()
+    return X.T, Y.T
 
 if __name__ == '__main__':
     '''# Test 1
@@ -303,7 +305,8 @@ if __name__ == '__main__':
         with open('data.json', 'w') as f:
             json.dump(ll, f)
     #calcconit(ll)
-    trainStock('601857', 5)
-    
+    X, Y = trainStock('601857', 5)
+    print(X)
+    print(Y)
     #print(df.head())
 

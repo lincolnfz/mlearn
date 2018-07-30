@@ -225,8 +225,11 @@ def calc2stock(id1, id2):
 def zscore(series):
     return (series - series.mean()) / np.std(series)
 
-def trainStock(stockid, slice_size):
-    slice_size += 1
+def gusweight(alpha, dist):
+    return np.exp(0- (np.power(dist, 2) * alpha))
+
+def trainStock(stockid, slice_group):
+    slice_size = slice_group + 1
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
@@ -245,32 +248,38 @@ def trainStock(stockid, slice_size):
             x = df.iloc[idx:idx+slice_size-1]
             y = df.iloc[idx+slice_size-1]
             #x = x.reset_index()
-            x_combin = x.iloc[0]
+            weight_pod = slice_group - 1 
+            x_combin = x.iloc[0] * gusweight(0.01, weight_pod)
             #print(x_combin)
             #print(x_combin)
+            weight_pod -= 1
             for x_i in range(len(x.index)-1):
-                x_item = x.iloc[x_i+1]
-                x_combin = pd.concat( [x_combin, x_item], axis=1 )
+                x_item = x.iloc[x_i+1] * gusweight(0.01, weight_pod)
+                #print(weight_pod, gusweight(0.1, weight_pod))
+                weight_pod -= 1
+                x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
-            #print(x_combin , y)
+            #print(x_combin)
             #break
             #X.append(x_combin)
             #Y.append(y)
             if X is None:
                 X = x_combin
             else:
-                X = pd.concat([X, x_combin], axis=0)
+                X = pd.concat([X, x_combin], axis=1)
 
             if Y is None:
                 Y = y
             else:
-                Y = pd.concat([Y, y], axis=0 )
+                Y = pd.concat([Y, y], axis=1 )
 
         #print(len(X.index))
         #print(len(Y.index))
-        #print(X)
+        #print(Y.T)
         break
     conn.close()
+    print(X.T, Y.T)
+    #return X.T, Y.T
 
 if __name__ == '__main__':
     '''# Test 1
@@ -304,6 +313,6 @@ if __name__ == '__main__':
             json.dump(ll, f)
     #calcconit(ll)
     trainStock('601857', 5)
-    
+    #print(X, Y)
     #print(df.head())
 

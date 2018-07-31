@@ -12,6 +12,9 @@ from pylab import mpl
 import subprocess
 import json
 import os
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
+from sklearn.datasets import make_classification
 
 
 db_pass = '123abc'
@@ -253,13 +256,21 @@ def trainStock(stockid, slice_group):
             #print(x_combin)
             #print(x_combin)
             weight_pod -= 1
+            last_ma5 = 0
             for x_i in range(len(x.index)-1):
                 x_item = x.iloc[x_i+1] * gusweight(0.01, weight_pod)
+                last_ma5 = x_item.loc['ma5']
                 #print(weight_pod, gusweight(0.1, weight_pod))
                 weight_pod -= 1
                 x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
-            #print(x_combin)
+            y_ma5 = y.loc['ma5']
+            if y_ma5 - last_ma5 <= 0:
+                y_value = 0
+            else:
+                y_value = 1
+            y_item = pd.DataFrame(data=[y_value], columns=['qu'])
+            #print(y_item)
             #break
             #X.append(x_combin)
             #Y.append(y)
@@ -269,17 +280,42 @@ def trainStock(stockid, slice_group):
                 X = pd.concat([X, x_combin], axis=1)
 
             if Y is None:
-                Y = y
+                Y = y_item
             else:
-                Y = pd.concat([Y, y], axis=1 )
+                Y = pd.concat([Y, y_item], axis=1 )
 
         #print(len(X.index))
         #print(len(Y.index))
         #print(Y.T)
         break
     conn.close()
-    print(X.T, Y.T)
+    X = X.T
+    Y = Y.T
+    Y = np.array(Y).reshape(Y.shape[0],)
+    print(X.shape,Y.shape)
+    # Build a forest and compute the feature importances
+    forest = ExtraTreesClassifier(n_estimators=250,
+                                random_state=0)
+
+    forest.fit(X, Y)
+    importances = forest.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in forest.estimators_],
+                axis=0)
+    indices = np.argsort(importances)[::-1]
+    # Print the feature ranking
+    print("Feature ranking:")
+
+    for f in range(X.shape[1]):
+        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))
+    #print(X_new)
     #return X.T, Y.T
+    plt.figure()
+    plt.title("Feature importances")
+    plt.bar(range(X.shape[1]), importances[indices],
+        color="r", yerr=std[indices], align="center")
+    plt.xticks(range(X.shape[1]), indices)
+    plt.xlim([-1, X.shape[1]])
+    plt.show()
 
 if __name__ == '__main__':
     '''# Test 1
@@ -312,7 +348,19 @@ if __name__ == '__main__':
         with open('data.json', 'w') as f:
             json.dump(ll, f)
     #calcconit(ll)
-    trainStock('601857', 5)
+    # Build a classification task using 3 informative features
+    '''X, y = make_classification(n_samples=100,
+                            n_features=10,
+                            n_informative=3,
+                            n_redundant=0,
+                            n_repeated=0,
+                            n_classes=3,
+                            random_state=0,
+                            shuffle=False)
+    print(X, y)
+    print(X.shape, y.shape)'''
+
+    trainStock('600000', 5)
     #print(X, Y)
     #print(df.head())
 

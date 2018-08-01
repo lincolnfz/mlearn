@@ -14,8 +14,8 @@ import json
 import os
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_selection import SelectFromModel
-from sklearn.datasets import make_classification
-
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score
 
 db_pass = '123abc'
  
@@ -229,15 +229,15 @@ def zscore(series):
     return (series - series.mean()) / np.std(series)
 
 def gusweight(alpha, dist):
-    return np.exp(0- (np.power(dist, 2) * alpha))
+    return np.exp(-alpha * (np.power(dist, 2)))
 
-def trainStock(stockid, slice_group):
+def getDataStock(stockid, begin_date, slice_group):
     slice_size = slice_group + 1
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
-    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' order by price_date'.format(id=stockid)
+    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' and price_date > \'{date}\' order by price_date'.format(id=stockid, date=begin_date)
     df = pd.read_sql(sql, con=conn, index_col='price_date')
     while True:
         if df.empty:
@@ -292,8 +292,11 @@ def trainStock(stockid, slice_group):
     X = X.T
     Y = Y.T
     Y = np.array(Y).reshape(Y.shape[0],)
-    print(X.shape,Y.shape)
+    #print(X.shape,Y.shape)
     # Build a forest and compute the feature importances
+    return X,Y
+
+def forest_train(X, Y):
     forest = ExtraTreesClassifier(n_estimators=250,
                                 random_state=0)
 
@@ -316,6 +319,24 @@ def trainStock(stockid, slice_group):
     plt.xticks(range(X.shape[1]), indices)
     plt.xlim([-1, X.shape[1]])
     plt.show()
+
+def rand_forest(X, Y):
+    clf = RandomForestClassifier(n_estimators=500,
+        min_samples_split=2, random_state=0)
+    clf.fit(X, Y)
+    #print(clf.score(test_X, test_Y))
+    #clf.predict()
+    #scores =  cross_val_score(clf, X, Y)
+    #print(scores.mean())
+    '''importances = clf.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in clf.estimators_],
+                axis=0)
+    indices = np.argsort(importances)[::-1]
+    print("Feature ranking:")
+
+    for f in range(X.shape[1]):
+        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))'''
+    return clf
 
 if __name__ == '__main__':
     '''# Test 1
@@ -360,7 +381,28 @@ if __name__ == '__main__':
     print(X, y)
     print(X.shape, y.shape)'''
 
-    trainStock('600000', 5)
-    #print(X, Y)
-    #print(df.head())
+    X, Y = getDataStock('600000','2015-09-01', 5)
+    test_num = 30
+    data_len = len(X.index)
+
+    g = (test_num+1-x for x in range(1, test_num+1))
+    scores = []
+    for nn in g:
+        headnum = data_len - nn
+        train_x = X.head(headnum)
+        train_y = Y[:headnum]
+        clf = rand_forest(X=train_x, Y=train_y)
+
+        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
+        test_y = np.array(Y[headnum]).reshape(1)
+        ss = clf.score(test_x, test_y)
+        scores.append(ss)
+        print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
+        #print(test_x.shape)
+        #print(test_y.shape)
+        #break
+    scores = np.array(scores)
+    print(scores.mean())
+
+    
 

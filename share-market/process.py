@@ -16,6 +16,7 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import GradientBoostingClassifier
 
 db_pass = '123abc'
  
@@ -338,6 +339,12 @@ def rand_forest(X, Y):
         print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))'''
     return clf
 
+def granient_classification(X, Y):
+    clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0,
+        max_depth=1, random_state=0).fit(X_train, y_train)
+    clf.fit(X, Y)
+    return clf          
+
 if __name__ == '__main__':
     '''# Test 1
     # 定义数据
@@ -391,7 +398,7 @@ if __name__ == '__main__':
         headnum = data_len - nn
         train_x = X.head(headnum)
         train_y = Y[:headnum]
-        clf = rand_forest(X=train_x, Y=train_y)
+        clf = granient_classification(X=train_x, Y=train_y)
 
         test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
         test_y = np.array(Y[headnum]).reshape(1)

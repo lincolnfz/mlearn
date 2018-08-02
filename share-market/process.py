@@ -341,9 +341,35 @@ def rand_forest(X, Y):
 
 def granient_classification(X, Y):
     clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0,
-        max_depth=1, random_state=0).fit(X_train, y_train)
+        max_depth=1, random_state=0).fit(X, Y)
     clf.fit(X, Y)
-    return clf          
+    return clf      
+
+def calcstock_act(id, name):
+    X, Y = getDataStock(id,'2015-08-01', 5)
+    test_num = 30
+    data_len = len(X.index)
+
+    g = (test_num+1-x for x in range(1, test_num+1))
+    scores = []
+    for nn in g:
+        headnum = data_len - nn
+        train_x = X.head(headnum)
+        train_y = Y[:headnum]
+        clf = granient_classification(X=train_x, Y=train_y)
+
+        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
+        test_y = np.array(Y[headnum]).reshape(1)
+        ss = clf.score(test_x, test_y)
+        scores.append(ss)
+        #print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
+        #print(test_x.shape)
+        #print(test_y.shape)
+        #break
+    scores = np.array(scores)
+    avg = scores.mean()
+    print('%s, avg: %f'% (name, avg) )
+    return avg
 
 if __name__ == '__main__':
     '''# Test 1
@@ -387,29 +413,20 @@ if __name__ == '__main__':
                             shuffle=False)
     print(X, y)
     print(X.shape, y.shape)'''
+    df = read_mysql_and_insert_2()
+    result = pd.DataFrame(columns=['name', 'avg'])
+    #df.index[0:3]
+    for idx in df.index:
+        row = df.loc[idx, ['exchange_id','name']]
+        if row is None:
+            continue
+        avg = calcstock_act( row[0], row[1] )
+        item = pd.DataFrame(data= {'name':[row[1]], 'avg':[avg]})
+        result = result.append(item)
 
-    X, Y = getDataStock('600000','2015-09-01', 5)
-    test_num = 30
-    data_len = len(X.index)
-
-    g = (test_num+1-x for x in range(1, test_num+1))
-    scores = []
-    for nn in g:
-        headnum = data_len - nn
-        train_x = X.head(headnum)
-        train_y = Y[:headnum]
-        clf = granient_classification(X=train_x, Y=train_y)
-
-        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
-        test_y = np.array(Y[headnum]).reshape(1)
-        ss = clf.score(test_x, test_y)
-        scores.append(ss)
-        print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
-        #print(test_x.shape)
-        #print(test_y.shape)
-        #break
-    scores = np.array(scores)
-    print(scores.mean())
+    result = result.sort_values( by='avg',  ascending=False )
+    result.to_excel('./stock.xls', sheet_name='stock')
+    print(result)
 
     
 

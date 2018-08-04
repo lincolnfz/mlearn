@@ -17,6 +17,7 @@ from sklearn.feature_selection import SelectFromModel
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn import svm
 
 db_pass = '123abc'
  
@@ -356,7 +357,41 @@ def calcstock_act(id, name):
         headnum = data_len - nn
         train_x = X.head(headnum)
         train_y = Y[:headnum]
+        #train_x = (train_x - train_x.mean()) / (train_x.std())
         clf = granient_classification(X=train_x, Y=train_y)
+
+        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
+        test_y = np.array(Y[headnum]).reshape(1)
+        ss = clf.score(test_x, test_y)
+        scores.append(ss)
+        #print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
+        #print(test_x.shape)
+        #print(test_y.shape)
+        #break
+    scores = np.array(scores)
+    avg = scores.mean()
+    print('%s, avg: %f'% (name, avg) )
+    return avg
+
+def svc_cl(X, Y):
+    clf = svm.SVC(kernel='linear', C=1.0)
+    clf.fit(X, Y)
+    return clf
+
+
+def svc_classifation(id, name):
+    X, Y = getDataStock(id,'2015-08-01', 5)
+    test_num = 30
+    data_len = len(X.index)
+
+    g = (test_num+1-x for x in range(1, test_num+1))
+    scores = []
+    for nn in g:
+        headnum = data_len - nn
+        train_x = X.head(headnum)
+        train_y = Y[:headnum]
+        #train_x = (train_x - train_x.mean()) / (train_x.std())
+        clf = svc_cl(X=train_x, Y=train_y)
 
         test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
         test_y = np.array(Y[headnum]).reshape(1)
@@ -416,11 +451,11 @@ if __name__ == '__main__':
     df = read_mysql_and_insert_2()
     result = pd.DataFrame(columns=['name', 'avg'])
     #df.index[0:3]
-    for idx in df.index:
+    for idx in df.index[:3]:
         row = df.loc[idx, ['exchange_id','name']]
         if row is None:
             continue
-        avg = calcstock_act( row[0], row[1] )
+        avg = svc_classifation( row[0], row[1] )
         item = pd.DataFrame(data= {'name':[row[1]], 'avg':[avg]})
         result = result.append(item)
 

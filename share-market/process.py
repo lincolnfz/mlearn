@@ -12,7 +12,12 @@ from pylab import mpl
 import subprocess
 import json
 import os
-
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn import svm
 
 db_pass = '123abc'
  
@@ -226,15 +231,15 @@ def zscore(series):
     return (series - series.mean()) / np.std(series)
 
 def gusweight(alpha, dist):
-    return np.exp(0- (np.power(dist, 2) * alpha))
+    return np.exp(-alpha * (np.power(dist, 2)))
 
-def trainStock(stockid, slice_group):
+def getDataStock(stockid, begin_date, slice_group):
     slice_size = slice_group + 1
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
 
-    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' order by price_date'.format(id=stockid)
+    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' and price_date > \'{date}\' order by price_date'.format(id=stockid, date=begin_date)
     df = pd.read_sql(sql, con=conn, index_col='price_date')
     while True:
         if df.empty:
@@ -253,13 +258,21 @@ def trainStock(stockid, slice_group):
             #print(x_combin)
             #print(x_combin)
             weight_pod -= 1
+            last_ma5 = 0
             for x_i in range(len(x.index)-1):
                 x_item = x.iloc[x_i+1] * gusweight(0.01, weight_pod)
+                last_ma5 = x_item.loc['ma5']
                 #print(weight_pod, gusweight(0.1, weight_pod))
                 weight_pod -= 1
                 x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
-            #print(x_combin)
+            y_ma5 = y.loc['ma5']
+            if y_ma5 - last_ma5 <= 0:
+                y_value = 0
+            else:
+                y_value = 1
+            y_item = pd.DataFrame(data=[y_value], columns=['qu'])
+            #print(y_item)
             #break
             #X.append(x_combin)
             #Y.append(y)
@@ -269,17 +282,129 @@ def trainStock(stockid, slice_group):
                 X = pd.concat([X, x_combin], axis=1)
 
             if Y is None:
-                Y = y
+                Y = y_item
             else:
-                Y = pd.concat([Y, y], axis=1 )
+                Y = pd.concat([Y, y_item], axis=1 )
 
         #print(len(X.index))
         #print(len(Y.index))
         #print(Y.T)
         break
     conn.close()
-    print(X.T, Y.T)
+    X = X.T
+    Y = Y.T
+    Y = np.array(Y).reshape(Y.shape[0],)
+    #print(X.shape,Y.shape)
+    # Build a forest and compute the feature importances
+    return X,Y
+
+def forest_train(X, Y):
+    forest = ExtraTreesClassifier(n_estimators=250,
+                                random_state=0)
+
+    forest.fit(X, Y)
+    importances = forest.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in forest.estimators_],
+                axis=0)
+    indices = np.argsort(importances)[::-1]
+    # Print the feature ranking
+    print("Feature ranking:")
+
+    for f in range(X.shape[1]):
+        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))
+    #print(X_new)
     #return X.T, Y.T
+    plt.figure()
+    plt.title("Feature importances")
+    plt.bar(range(X.shape[1]), importances[indices],
+        color="r", yerr=std[indices], align="center")
+    plt.xticks(range(X.shape[1]), indices)
+    plt.xlim([-1, X.shape[1]])
+    plt.show()
+
+def rand_forest(X, Y):
+    clf = RandomForestClassifier(n_estimators=500,
+        min_samples_split=2, random_state=0)
+    clf.fit(X, Y)
+    #print(clf.score(test_X, test_Y))
+    #clf.predict()
+    #scores =  cross_val_score(clf, X, Y)
+    #print(scores.mean())
+    '''importances = clf.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in clf.estimators_],
+                axis=0)
+    indices = np.argsort(importances)[::-1]
+    print("Feature ranking:")
+
+    for f in range(X.shape[1]):
+        print("%d. feature %d (%f)" % (f + 1, indices[f], importances[indices[f]]))'''
+    return clf
+
+def granient_classification(X, Y):
+    clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0,
+        max_depth=1, random_state=0).fit(X, Y)
+    clf.fit(X, Y)
+    return clf      
+
+def calcstock_act(id, name):
+    X, Y = getDataStock(id,'2015-08-01', 5)
+    test_num = 30
+    data_len = len(X.index)
+
+    g = (test_num+1-x for x in range(1, test_num+1))
+    scores = []
+    for nn in g:
+        headnum = data_len - nn
+        train_x = X.head(headnum)
+        train_y = Y[:headnum]
+        #train_x = (train_x - train_x.mean()) / (train_x.std())
+        clf = granient_classification(X=train_x, Y=train_y)
+
+        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
+        test_y = np.array(Y[headnum]).reshape(1)
+        ss = clf.score(test_x, test_y)
+        scores.append(ss)
+        #print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
+        #print(test_x.shape)
+        #print(test_y.shape)
+        #break
+    scores = np.array(scores)
+    avg = scores.mean()
+    print('%s, avg: %f'% (name, avg) )
+    return avg
+
+def svc_cl(X, Y):
+    clf = svm.SVC(kernel='linear', C=1.0)
+    clf.fit(X, Y)
+    return clf
+
+
+def svc_classifation(id, name):
+    X, Y = getDataStock(id,'2015-08-01', 5)
+    test_num = 30
+    data_len = len(X.index)
+
+    g = (test_num+1-x for x in range(1, test_num+1))
+    scores = []
+    for nn in g:
+        headnum = data_len - nn
+        train_x = X.head(headnum)
+        train_y = Y[:headnum]
+        #train_x = (train_x - train_x.mean()) / (train_x.std())
+        clf = svc_cl(X=train_x, Y=train_y)
+
+        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
+        test_y = np.array(Y[headnum]).reshape(1)
+        ss = clf.score(test_x, test_y)
+        scores.append(ss)
+        #print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
+        #print(test_x.shape)
+        #print(test_y.shape)
+        #break
+    scores = np.array(scores)
+    avg = scores.mean()
+    print('%s, avg: %f'% (name, avg) )
+    return avg
 
 if __name__ == '__main__':
     '''# Test 1
@@ -312,7 +437,31 @@ if __name__ == '__main__':
         with open('data.json', 'w') as f:
             json.dump(ll, f)
     #calcconit(ll)
-    trainStock('601857', 5)
-    #print(X, Y)
-    #print(df.head())
+    # Build a classification task using 3 informative features
+    '''X, y = make_classification(n_samples=100,
+                            n_features=10,
+                            n_informative=3,
+                            n_redundant=0,
+                            n_repeated=0,
+                            n_classes=3,
+                            random_state=0,
+                            shuffle=False)
+    print(X, y)
+    print(X.shape, y.shape)'''
+    df = read_mysql_and_insert_2()
+    result = pd.DataFrame(columns=['name', 'avg'])
+    #df.index[0:3]
+    for idx in df.index[:3]:
+        row = df.loc[idx, ['exchange_id','name']]
+        if row is None:
+            continue
+        avg = svc_classifation( row[0], row[1] )
+        item = pd.DataFrame(data= {'name':[row[1]], 'avg':[avg]})
+        result = result.append(item)
+
+    result = result.sort_values( by='avg',  ascending=False )
+    result.to_excel('./stock.xls', sheet_name='stock')
+    print(result)
+
+    
 

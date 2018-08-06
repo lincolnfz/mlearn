@@ -289,11 +289,12 @@ def getDataStock(stockid, begin_date, slice_group):
         #print(len(X.index))
         #print(len(Y.index))
         #print(Y.T)
+        X = X.T
+        Y = Y.T
+        Y = np.array(Y).reshape(Y.shape[0],)
         break
     conn.close()
-    X = X.T
-    Y = Y.T
-    Y = np.array(Y).reshape(Y.shape[0],)
+    
     #print(X.shape,Y.shape)
     # Build a forest and compute the feature importances
     return X,Y
@@ -344,10 +345,20 @@ def granient_classification(X, Y):
     clf = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0,
         max_depth=1, random_state=0).fit(X, Y)
     clf.fit(X, Y)
-    return clf      
+    importances = clf.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    remove_col = indices[40:]
+    X = np.array(X)
+    X = np.delete(X, remove_col, axis=1)
+    #print(X.shape)
+    clf.fit(X, Y)
+    return clf, remove_col 
 
 def calcstock_act(id, name):
     X, Y = getDataStock(id,'2015-08-01', 5)
+    if X is None:
+        return 0.0
+        
     test_num = 30
     data_len = len(X.index)
 
@@ -358,10 +369,12 @@ def calcstock_act(id, name):
         train_x = X.head(headnum)
         train_y = Y[:headnum]
         #train_x = (train_x - train_x.mean()) / (train_x.std())
-        clf = granient_classification(X=train_x, Y=train_y)
+        clf, remove_col = granient_classification(X=train_x, Y=train_y)
 
         test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
         test_y = np.array(Y[headnum]).reshape(1)
+        test_x = np.array(test_x)
+        test_x = np.delete(test_x, remove_col, axis=1)
         ss = clf.score(test_x, test_y)
         scores.append(ss)
         #print(clf.predict(test_x), Y[headnum], ss, clf.predict_proba(test_x))
@@ -392,7 +405,6 @@ def svc_classifation(id, name):
         train_y = Y[:headnum]
         #train_x = (train_x - train_x.mean()) / (train_x.std())
         clf = svc_cl(X=train_x, Y=train_y)
-
         test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
         test_y = np.array(Y[headnum]).reshape(1)
         ss = clf.score(test_x, test_y)
@@ -455,7 +467,7 @@ if __name__ == '__main__':
         row = df.loc[idx, ['exchange_id','name']]
         if row is None:
             continue
-        avg = svc_classifation( row[0], row[1] )
+        avg = calcstock_act( row[0], row[1] )
         item = pd.DataFrame(data= {'name':[row[1]], 'avg':[avg]})
         result = result.append(item)
 

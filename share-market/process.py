@@ -18,6 +18,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn import svm
+import lightgbm as lgb
 
 db_pass = '123abc'
  
@@ -418,6 +419,35 @@ def svc_classifation(id, name):
     print('%s, avg: %f'% (name, avg) )
     return avg
 
+def lightgdm_classifation(id, name):
+    X, Y = getDataStock(id,'2015-08-01', 5)
+    test_num = 30
+    data_len = len(X.index)
+
+    g = (test_num+1-x for x in range(1, test_num+1))
+    scores = []
+    for nn in g:
+        headnum = data_len - nn
+        train_x = X.head(headnum)
+        train_y = Y[:headnum]
+        train_data = lgb.Dataset(train_x, label=train_y )
+        #print(train_data)
+        param = {'num_leaves':31,   'objective':'binary'}
+        param['metric'] = 'auc'
+        num_round = 10
+        bst = lgb.train(param, train_data, num_round)
+        test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
+        test_y = np.array(Y[headnum]).reshape(1)
+        ypred = bst.predict(test_x)
+        print(test_y, ypred)
+        
+        
+    #scores = np.array(scores)
+    #avg = scores.mean()
+    #print('%s, avg: %f'% (name, avg) )
+    #return avg
+    return 0.0
+
 if __name__ == '__main__':
     '''# Test 1
     # 定义数据
@@ -463,17 +493,17 @@ if __name__ == '__main__':
     df = read_mysql_and_insert_2()
     result = pd.DataFrame(columns=['name', 'avg'])
     #df.index[0:3]
-    for idx in df.index[:3]:
+    for idx in df.index[:1]:
         row = df.loc[idx, ['exchange_id','name']]
         if row is None:
             continue
-        avg = calcstock_act( row[0], row[1] )
+        avg = lightgdm_classifation( row[0], row[1] )
         item = pd.DataFrame(data= {'name':[row[1]], 'avg':[avg]})
         result = result.append(item)
 
-    result = result.sort_values( by='avg',  ascending=False )
-    result.to_excel('./stock.xls', sheet_name='stock')
-    print(result)
+    #result = result.sort_values( by='avg',  ascending=False )
+    #result.to_excel('./stock.xls', sheet_name='stock')
+    #print(result)
 
     
 

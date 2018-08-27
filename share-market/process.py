@@ -432,13 +432,13 @@ def lightgdm_classifation(id, name):
         train_y = Y[:headnum]
         train_data = lgb.Dataset(train_x, label=train_y )
         #print(train_data)
-        param = {'num_leaves':31,   'objective':'binary'}
+        param = {'num_leaves':20,  'objective':'binary'}
         param['metric'] = 'auc'
         num_round = 10
         bst = lgb.train(param, train_data, num_round)
         test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
         test_y = np.array(Y[headnum]).reshape(1)
-        ypred = bst.predict(test_x)
+        ypred = bst.predict(test_x, num_iteration=bst.best_iteration)
         print(test_y, ypred)
         
         

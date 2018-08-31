@@ -21,3 +21,5 @@ with tf.Session() as sess:
     out = sess.run(out_op, feed_dict={input_x: item, keep_out:1.0, batch_size:1} )
     print(out[0])
     print(lab)
+    writer = tf.summary.FileWriter('./log', sess.graph)
+    writer.close()

@@ -25,15 +25,16 @@ input_size = 28
 # 时序持续长度为28，即每做一次预测，需要先输入28行
 timestep_size = 28
 # 每个隐含层的节点数
-hidden_size = 256
+hidden_size = 384
 # LSTM layer 的层数
 layer_num = 2
 # 最后输出分类类别数量，如果是回归预测的话应该是 1
 class_num = 10
 
-_X = tf.placeholder(tf.float32, [None, 784])
+_X = tf.placeholder(tf.float32, [None, 784], name='x_input')
 y = tf.placeholder(tf.float32, [None, class_num])
 keep_prob = tf.placeholder(tf.float32)
+print(_X)
 
 # 把784个点的字符信息还原成 28 * 28 的图片
 # 下面几个步骤是实现 RNN / LSTM 的关键
@@ -56,7 +57,7 @@ def get_a_cell():
     return lstm_cell
 
 # 用tf.nn.rnn_cell MultiRNNCell创建3层RNN
-mlstm_cell = tf.nn.rnn_cell.MultiRNNCell([get_a_cell() for _ in range(2)]) # 2层RNN
+mlstm_cell = tf.nn.rnn_cell.MultiRNNCell([get_a_cell() for _ in range(3)]) # 2层RNN
 
 # **步骤4：调用 MultiRNNCell 来实现多层 LSTM
 #mlstm_cell = lstm_cell #rnn.MultiRNNCell([lstm_cell] * layer_num, state_is_tuple=True)
@@ -94,17 +95,31 @@ h_state = outputs[-1]'''
 # 开始训练和测试
 W = tf.Variable(tf.truncated_normal([hidden_size, class_num], stddev=0.1), dtype=tf.float32)
 bias = tf.Variable(tf.constant(0.1,shape=[class_num]), dtype=tf.float32)
-y_pre = tf.nn.softmax(tf.matmul(h_state, W) + bias)
-
+y_pre = tf.nn.softmax(tf.matmul(h_state, W) + bias , name='pre_out')
+print(y_pre)
 
 # 损失和评估函数
 cross_entropy = -tf.reduce_mean(y * tf.log(y_pre))
-train_op = tf.train.AdamOptimizer(lr).minimize(cross_entropy)
+
+#tvars = tf.trainable_variables()
+#grads, _ = tf.clip_by_global_norm(tf.gradients(cross_entropy, tvars), 5)
+
+
+#optimizer = tf.train.GradientDescentOptimizer(lr)
+#optimizer.apply_gradients(zip(grads, tvars))
+#train_op = tf.train.AdamOptimizer(lr).minimize(grads)
+#new_lr = tf.placeholder(tf.float32,shape=[],name="new_learning_rate")
+
+optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=0.5)
+grads, variables = zip(*optimizer.compute_gradients(cross_entropy))
+grads, global_norm = tf.clip_by_global_norm(grads, 5)
+train_op = optimizer.apply_gradients(zip(grads, variables))
 
 correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(y,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
 sess.run(tf.global_variables_initializer())
+writer = tf.summary.FileWriter('./log', sess.graph)
 for i in range(2000):
     _batch_size = 128
     batch = mnist.train.next_batch(_batch_size)
@@ -118,3 +133,6 @@ for i in range(2000):
 # 计算测试数据的准确率
 print( "test accuracy %g" % sess.run(accuracy, feed_dict={
     _X: mnist.test.images, y: mnist.test.labels, keep_prob: 1.0, batch_size:mnist.test.images.shape[0]}))
+
+saver = tf.train.Saver()
+saver.save(sess, './log/mnist_rnn_data')

@@ -38,7 +38,8 @@ sess.run(init)
 for i in range(1000):
   batch_xs, batch_ys = mnist.train.next_batch(100)
   _,cost = sess.run([train_step, cross_entropy], feed_dict={x: batch_xs, y_: batch_ys})
-  print("Epoch:", '%04d' % (i+1), "cost=", "{:.9f}".format(cost)) 
+  print("Epoch:", '%04d' % (i+1), "cost=", "{:.9f}".format(cost))
+  
   
 correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))

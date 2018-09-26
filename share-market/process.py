@@ -421,7 +421,7 @@ def svc_classifation(id, name):
 
 def lightgdm_classifation(id, name):
     X, Y = getDataStock(id,'2015-08-01', 5)
-    test_num = 30
+    test_num = 10
     data_len = len(X.index)
 
     g = (test_num+1-x for x in range(1, test_num+1))
@@ -434,12 +434,23 @@ def lightgdm_classifation(id, name):
         #print(train_data)
         param = {'num_leaves':20,  'objective':'binary'}
         param['metric'] = 'auc'
-        num_round = 10
+        num_round = 100
         bst = lgb.train(param, train_data, num_round)
+        #print(bst.feature_importance())
         test_x =  np.array(X.iloc[headnum]).reshape(1,-1)
         test_y = np.array(Y[headnum]).reshape(1)
         ypred = bst.predict(test_x, num_iteration=bst.best_iteration)
         print(test_y, ypred)
+        y_out = 0
+        if ypred > 0.5 :
+            y_out = 1
+        if y_out == test_y:
+            scores.append(1)
+        else:
+            scores.append(0)
+        
+    print(np.array( scores ).mean())
+        #
         
         
     #scores = np.array(scores)

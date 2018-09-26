@@ -73,6 +73,7 @@ init_state = mlstm_cell.zero_state(batch_size, dtype=tf.float32)
 # ** 最后输出维度是 [batch_size, hidden_size]
 outputs, state = tf.nn.dynamic_rnn(mlstm_cell, inputs=X, initial_state=init_state, time_major=False)
 h_state = outputs[:, -1, :]  # 或者 h_state = state[-1][1]
+print(h_state.shape)
 
 # *************** 为了更好的理解 LSTM 工作原理，我们把上面 步骤6 中的函数自己来实现 ***************
 # 通过查看文档你会发现， RNNCell 都提供了一个 __call__()函数（见最后附），我们可以用它来展开实现LSTM按时间步迭代。

@@ -15,6 +15,6 @@ sentences = MySentences('./nlp-txt') # a memory-friendly iterator
 for line, split in sentences:
     seg_list = jieba.cut(line, cut_all=False)
     a = map( lambda x: print(x), seg_list )
-    print(list(a))
-    #print(type(a))
+    words = [x for x in seg_list]
+    print(words)
 #model = gensim.models.Word2Vec(sentences)

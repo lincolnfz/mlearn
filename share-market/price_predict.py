@@ -250,6 +250,7 @@ def getDataStock(stockid, begin_date, slice_group):
         total_slice = len(df.index) - slice_size + 1
         X = None
         Y = None
+        df = (df - df.mean()) / (df.std()+0.0001)
         for idx in  range(total_slice):
             x = df.iloc[idx:idx+slice_size-1]
             y = df.iloc[idx+slice_size-1]
@@ -268,11 +269,11 @@ def getDataStock(stockid, begin_date, slice_group):
                 x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
             y_ma5 = y.loc['ma5']
-            if y_ma5 - last_ma5 <= 0:
+            '''if y_ma5 - last_ma5 <= 0:
                 y_value = 0
             else:
-                y_value = 1
-            y_item = pd.DataFrame(data=[y_value], columns=['qu'])
+                y_value = 1'''
+            y_item = pd.DataFrame(data=[y_ma5], columns=['qu'])
             #print(y_item)
             #break
             #X.append(x_combin)
@@ -460,61 +461,8 @@ def lightgdm_classifation(id, name):
     return 0.0
 
 if __name__ == '__main__':
-    '''# Test 1
-    # 定义数据
-    dates = pd.date_range('20170101', periods = 6)
-    df = pd.DataFrame(np.arange(24).reshape((6, 4)), index = dates, columns = ['A', 'B', 'C', 'D'])
-    # 假设缺少数据
-    df.iloc[1, 1] = np.nan
-    df.iloc[2, 2] = np.nan
-    print(df)
-    df = df[~df.isin([np.nan, np.inf, -np.inf]).any(1)] #clean nan, inf -inf
-    print(df)
-    exit'''
-
-    ll = []
-    if os.path.isfile("data.json"):
-        with open('data.json', 'r') as f:
-            ll = json.load(f)
-    else:
-        df = read_mysql_and_insert_2()
-        for idx in df.index:
-            row = df.loc[idx, ['exchange_id','name']]
-            if row is None:
-                continue
-            ret = calcadfroot(row[0], row[1])
-            if ret == True:
-                item = { 'id': row[0], 'name': row[1] }
-                ll.append(item)
-
-        with open('data.json', 'w') as f:
-            json.dump(ll, f)
-    #calcconit(ll)
-    # Build a classification task using 3 informative features
-    '''X, y = make_classification(n_samples=100,
-                            n_features=10,
-                            n_informative=3,
-                            n_redundant=0,
-                            n_repeated=0,
-                            n_classes=3,
-                            random_state=0,
-                            shuffle=False)
-    print(X, y)
-    print(X.shape, y.shape)'''
-    df = read_mysql_and_insert_2()
-    result = pd.DataFrame(columns=['name', 'avg'])
-    #df.index[0:3]
-    for idx in df.index[:1]:
-        row = df.loc[idx, ['exchange_id','name']]
-        if row is None:
-            continue
-        avg = lightgdm_classifation( row[0], row[1] )
-        item = pd.DataFrame(data= {'name':[row[1]], 'avg':[avg]})
-        result = result.append(item)
-
-    #result = result.sort_values( by='avg',  ascending=False )
-    #result.to_excel('./stock.xls', sheet_name='stock')
-    #print(result)
-
-    
-
+    X, Y = getDataStock('600016','2015-08-01', 5)
+    #print(normalized_Y)
+    plt.figure()
+    plt.plot( Y, color="red" )
+    plt.show()

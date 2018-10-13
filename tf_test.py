@@ -28,7 +28,7 @@ mat = np.array([[0,1],[1,1],[1,0]])
 
 
 p=[0.5, 0.25, 0.125, 0.125]
-sum = 0;
+sum = 0
 for i in p:
     sum = sum + ( 0 - (i * np.log2(i)) )
     

@@ -60,6 +60,6 @@ def init_price_detail( ticker ):
     pass
 
 if __name__ == '__main__':
-    #init_symbol()
+    init_symbol()
     init_price()
     conn.close()

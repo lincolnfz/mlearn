@@ -56,7 +56,7 @@ def read_mysql_and_insert_2():
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
-    sql = 'select exchange_id, name from symbol limit 1'
+    sql = 'select exchange_id, name from symbol'
     df = pd.read_sql(sql, con=conn)
     #print(df.head())
     #df.to_sql(name='sum_case_1',con=engine,if_exists='append',index=False)

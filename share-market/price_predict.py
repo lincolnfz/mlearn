@@ -56,7 +56,7 @@ def read_mysql_and_insert_2():
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
-    sql = 'select exchange_id, name from symbol'
+    sql = 'select exchange_id, name from symbol limit 1'
     df = pd.read_sql(sql, con=conn)
     #print(df.head())
     #df.to_sql(name='sum_case_1',con=engine,if_exists='append',index=False)
@@ -234,20 +234,8 @@ def zscore(series):
 def gusweight(alpha, dist):
     return np.exp(-alpha * (np.power(dist, 2)))
 
-def getDataStock(stockid, begin_date, slice_group, prdict):
+def getDataStock(stockid, begin_date, slice_group, predict=1):
     slice_size = slice_group + predict
-    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
-                             db='share_market',charset='utf8mb4',
-                             cursorclass=pymysql.cursors.DictCursor)
-
-    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' and price_date > \'{date}\' order by price_date'.format(id=stockid, date=begin_date)
-    df = pd.read_sql(sql, con=conn, index_col='price_date')
-    while True:
-        if df.empty:
-            break
-
-def getDataStock(stockid, begin_date, slice_group, prdict=1):
-    slice_size = slice_group + prdict
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
@@ -259,21 +247,19 @@ def getDataStock(stockid, begin_date, slice_group, prdict=1):
             break
         #for idx in df.index:
         #    print(idx)
-        total_slice = len(df.index) - slice_size - prdict
+        total_slice = len(df.index) - slice_size + 1
         X = None
         Y = None
         df = (df - df.mean()) / (df.std()+0.0001)
         for idx in  range(total_slice):
-            x = df.iloc[idx:idx+slice_size-prdict]
-            y = df.iloc[idx+slice_size-prdict]
+            x = df.iloc[idx:idx+slice_group]
+            y = df.iloc[idx+slice_group: idx+slice_group+predict]
             #x = x.reset_index()
             x_combin = x.iloc[0]
             #print(x_combin)
             #print(x_combin)
-            y_ma5 = []
-            for x_i in range(len(x.index)-prdict):
+            for x_i in range(len(x.index)-1):
                 x_item = x.iloc[x_i+1]
-                y_ma5.append(x_item.loc['ma5'])
                 #print(weight_pod, gusweight(0.1, weight_pod))
                 x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
@@ -281,7 +267,11 @@ def getDataStock(stockid, begin_date, slice_group, prdict=1):
                 y_value = 0
             else:
                 y_value = 1'''
-            y_item = pd.DataFrame(data=[y_ma5], columns=['qu'])
+            y_item = []
+            for y_i in y.index:
+                y_item.append( y.loc[y_i, 'ma5'] )
+            y_item = np.array(y_item)
+            y_item = pd.DataFrame(data=y_item, columns=['qu'])
             #print(y_item)
             #break
             #X.append(x_combin)
@@ -295,14 +285,11 @@ def getDataStock(stockid, begin_date, slice_group, prdict=1):
                 Y = y_item
             else:
                 Y = pd.concat([Y, y_item], axis=1 )
+            
 
-        #print(len(X.index))
-        #print(len(Y.index))
-        #print(Y.T)
-        X = X.T
-        Y = Y.T
-        Y = np.array(Y).reshape(Y.shape[0],)
         break
+    Y = Y.T
+    X = X.T
     conn.close()
     
     #print(X.shape,Y.shape)
@@ -475,7 +462,7 @@ if __name__ == '__main__':
     nu = 0
     for idx in symbolid.index:
         row = symbolid.loc[idx, ['exchange_id','name']]
-        X, Y = getDataStock(row['exchange_id'], '2000-01-01', 10)
+        X, Y = getDataStock(row['exchange_id'], '2000-01-01', 10, 3)
         item = {}
         item['X'] = X
         item['Y'] = Y

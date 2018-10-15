@@ -4,7 +4,6 @@ import pandas as pd
 import pymysql
 import sys
 from sqlalchemy import create_engine
-import pymysql
 import statsmodels.tsa.stattools as ts
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontManager
@@ -19,6 +18,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn import svm
 import lightgbm as lgb
+import tensorflow as tf
 
 db_pass = '123abc'
  
@@ -461,8 +461,54 @@ def lightgdm_classifation(id, name):
     return 0.0
 
 if __name__ == '__main__':
-    X, Y = getDataStock('600016','2015-08-01', 5)
+    symbolid = read_mysql_and_insert_2()
+    data = []
+    datalen = []
+    nu = 0
+    for idx in symbolid.index:
+        row = symbolid.loc[idx, ['exchange_id','name']]
+        X, Y = getDataStock(row['exchange_id'], '2000-01-01', 10)
+        item = {}
+        item['X'] = X
+        item['Y'] = Y
+        item['id'] = row['exchange_id']
+        item['name'] = row['name']
+        data.append(item)
+        datalen.append( X.shape[0] )
+        print( '%d - %s done' % (nu, item['name']) )
+        nu = nu + 1
+    min_len = np.min(datalen)
+
+    nu = 0
+    writer = tf.python_io.TFRecordWriter('%s.tfrecord' %'test')
+    for item in data:
+        item['X'] = np.array(item['X'].iloc[0-min_len:])
+        item['Y'] = np.array(item['Y'][0-min_len:])[:, np.newaxis]
+        xx = item['X'].reshape(-1)
+        yy = item['Y'].reshape(-1)
+        features={}
+        features['X'] = tf.train.Feature(float_list = tf.train.FloatList(value=xx))
+        features['Y'] = tf.train.Feature(float_list = tf.train.FloatList(value=yy))
+        # 存储丢失的形状信息
+        features['data_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X'].shape))
+        features['lab_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['Y'].shape))
+        
+        #转成tf_features
+        tf_features = tf.train.Features(feature= features)
+        #转成tf_example
+        tf_example = tf.train.Example(features = tf_features)
+
+        #5. 序列化样本
+        tf_serialized = tf_example.SerializeToString()
+
+        #6. 写入样本
+        writer.write(tf_serialized)
+        print( '%d - %s write' % (nu, item['name']) )
+        nu = nu + 1
+    
+    writer.close()
+    #print(data)
     #print(normalized_Y)
-    plt.figure()
-    plt.plot( Y, color="red" )
-    plt.show()
+    #plt.figure()
+    #plt.plot( Y, color="red" )
+    #plt.show()

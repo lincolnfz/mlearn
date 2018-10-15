@@ -234,8 +234,20 @@ def zscore(series):
 def gusweight(alpha, dist):
     return np.exp(-alpha * (np.power(dist, 2)))
 
-def getDataStock(stockid, begin_date, slice_group):
-    slice_size = slice_group + 1
+def getDataStock(stockid, begin_date, slice_group, prdict):
+    slice_size = slice_group + predict
+    conn = pymysql.connect(host='localhost', user='root', password=db_pass,
+                             db='share_market',charset='utf8mb4',
+                             cursorclass=pymysql.cursors.DictCursor)
+
+    sql = 'select  price_date, open_price, high_price, close_price, low_price, volume, price_change, p_change, ma5, ma10, ma20, v_ma5, v_ma10, v_ma20 from daily_price where symbol_id = \'{id}\' and price_date > \'{date}\' order by price_date'.format(id=stockid, date=begin_date)
+    df = pd.read_sql(sql, con=conn, index_col='price_date')
+    while True:
+        if df.empty:
+            break
+
+def getDataStock(stockid, begin_date, slice_group, prdict=1):
+    slice_size = slice_group + prdict
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
@@ -247,28 +259,24 @@ def getDataStock(stockid, begin_date, slice_group):
             break
         #for idx in df.index:
         #    print(idx)
-        total_slice = len(df.index) - slice_size + 1
+        total_slice = len(df.index) - slice_size - prdict
         X = None
         Y = None
         df = (df - df.mean()) / (df.std()+0.0001)
         for idx in  range(total_slice):
-            x = df.iloc[idx:idx+slice_size-1]
-            y = df.iloc[idx+slice_size-1]
+            x = df.iloc[idx:idx+slice_size-prdict]
+            y = df.iloc[idx+slice_size-prdict]
             #x = x.reset_index()
-            weight_pod = slice_group - 1 
-            x_combin = x.iloc[0] * gusweight(0.01, weight_pod)
+            x_combin = x.iloc[0]
             #print(x_combin)
             #print(x_combin)
-            weight_pod -= 1
-            last_ma5 = 0
-            for x_i in range(len(x.index)-1):
-                x_item = x.iloc[x_i+1] * gusweight(0.01, weight_pod)
-                last_ma5 = x_item.loc['ma5']
+            y_ma5 = []
+            for x_i in range(len(x.index)-prdict):
+                x_item = x.iloc[x_i+1]
+                y_ma5.append(x_item.loc['ma5'])
                 #print(weight_pod, gusweight(0.1, weight_pod))
-                weight_pod -= 1
                 x_combin = pd.concat( [x_combin, x_item], axis=0 )
             #x_combin = x_combin.dorp(['id', 'symbol_id', 'created_date', 'last_updated_date', 'adj_close_price', ''], asix=1)
-            y_ma5 = y.loc['ma5']
             '''if y_ma5 - last_ma5 <= 0:
                 y_value = 0
             else:

@@ -250,12 +250,14 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
         total_slice = len(df.index) - slice_size + 1
         X = None
         Y = None
+        width = 0
         df = (df - df.mean()) / (df.std()+0.0001)
         for idx in  range(total_slice):
             x = df.iloc[idx:idx+slice_group]
             y = df.iloc[idx+slice_group: idx+slice_group+predict]
             #x = x.reset_index()
             x_combin = x.iloc[0]
+            width = x_combin.shape[0]
             #print(x_combin)
             #print(x_combin)
             for x_i in range(len(x.index)-1):
@@ -269,7 +271,8 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
                 y_value = 1'''
             y_item = []
             for y_i in y.index:
-                y_item.append( y.loc[y_i, 'ma5'] )
+                val = (y.loc[y_i, 'high_price'] + y.loc[y_i, 'low_price']) / 2.0
+                y_item.append( val )
             y_item = np.array(y_item)
             y_item = pd.DataFrame(data=y_item, columns=['qu'])
             #print(y_item)
@@ -294,7 +297,7 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
     
     #print(X.shape,Y.shape)
     # Build a forest and compute the feature importances
-    return X,Y
+    return X,Y,width,slice_group
 
 def forest_train(X, Y):
     forest = ExtraTreesClassifier(n_estimators=250,
@@ -462,12 +465,13 @@ if __name__ == '__main__':
     nu = 0
     for idx in symbolid.index:
         row = symbolid.loc[idx, ['exchange_id','name']]
-        X, Y = getDataStock(row['exchange_id'], '2000-01-01', 10, 3)
+        X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 30, 3)
         item = {}
         item['X'] = X
         item['Y'] = Y
         item['id'] = row['exchange_id']
         item['name'] = row['name']
+        item['X_shape'] = [width, height]
         data.append(item)
         datalen.append( X.shape[0] )
         print( '%d - %s done' % (nu, item['name']) )
@@ -484,6 +488,7 @@ if __name__ == '__main__':
         features={}
         features['X'] = tf.train.Feature(float_list = tf.train.FloatList(value=xx))
         features['Y'] = tf.train.Feature(float_list = tf.train.FloatList(value=yy))
+        features['X_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X_shape']))
         # 存储丢失的形状信息
         features['data_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X'].shape))
         features['lab_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['Y'].shape))

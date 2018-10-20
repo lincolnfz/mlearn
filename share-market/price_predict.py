@@ -56,7 +56,7 @@ def read_mysql_and_insert_2():
     conn = pymysql.connect(host='localhost', user='root', password=db_pass,
                              db='share_market',charset='utf8mb4',
                              cursorclass=pymysql.cursors.DictCursor)
-    sql = 'select exchange_id, name from symbol limit 3'
+    sql = 'select exchange_id, name from symbol'
     df = pd.read_sql(sql, con=conn)
     #print(df.head())
     #df.to_sql(name='sum_case_1',con=engine,if_exists='append',index=False)
@@ -250,6 +250,7 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
         total_slice = len(df.index) - slice_size + 1
         X = None
         Y = None
+        width = 0
         df = (df - df.mean()) / (df.std()+0.0001)
 
         for idx in  range(total_slice):
@@ -271,9 +272,8 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
                 y_value = 1'''
             y_item = []
             for y_i in y.index:
-                low = y.loc[y_i, 'low_price']
-                high = y.loc[y_i, 'high_price']
-                y_item.append( (low + high) / 2.0 )
+                val = (y.loc[y_i, 'high_price'] + y.loc[y_i, 'low_price']) / 2.0
+                y_item.append( val )
             y_item = np.array(y_item)
             y_item = pd.DataFrame(data=y_item, columns=['qu'])
             #print(y_item)
@@ -459,27 +459,49 @@ def lightgdm_classifation(id, name):
     #return avg
     return 0.0
 
+
 if __name__ == '__main__':
+    os.makedirs('./data')
     symbolid = read_mysql_and_insert_2()
     data = []
     datalen = []
     nu = 0
     for idx in symbolid.index:
         row = symbolid.loc[idx, ['exchange_id','name']]
-        X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 10, 3)
+        X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 30, 3)
         item = {}
-        item['X'] = X
-        item['Y'] = Y
+        item['X'] = np.array(X)
+        item['Y'] = np.array(Y)
         item['id'] = row['exchange_id']
         item['name'] = row['name']
-        item['width'] = width
-        item['height'] = height
-        data.append(item)
-        datalen.append( X.shape[0] )
+        item['X_shape'] = [width, height]
+        #data.append(item)
+        #datalen.append( X.shape[0] )
+        writer = tf.python_io.TFRecordWriter('./data/%s.tfrecord' % row['exchange_id'])
+        xx = item['X'].reshape(-1)
+        yy = item['Y'].reshape(-1)
+        features={}
+        features['X'] = tf.train.Feature(float_list = tf.train.FloatList(value=xx))  
+        features['Y'] = tf.train.Feature(float_list = tf.train.FloatList(value=yy))
+        # 存储丢失的形状信息
+        features['X_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X_shape']))
+        features['lab_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['Y'].shape))
+        #转成tf_features
+        tf_features = tf.train.Features(feature= features)
+        #转成tf_example
+        tf_example = tf.train.Example(features = tf_features)
+
+        #5. 序列化样本
+        tf_serialized = tf_example.SerializeToString()
+
+        #6. 写入样本
+        writer.write(tf_serialized)
+        writer.close()
         print( '%d - %s done' % (nu, item['name']) )
         nu = nu + 1
-    min_len = np.min(datalen)
+    '''min_len = np.min(datalen)
 
+    
     nu = 0
     print(width, height)
     writer = tf.python_io.TFRecordWriter('%s.tfrecord' %'test')
@@ -491,8 +513,7 @@ if __name__ == '__main__':
         features={}
         features['X'] = tf.train.Feature(float_list = tf.train.FloatList(value=xx))
         features['Y'] = tf.train.Feature(float_list = tf.train.FloatList(value=yy))
-        features['X_width'] = tf.train.Feature(float_list = tf.train.Int64List( value=[ np.array([width],dtype=int64) ] ) )
-        features['X_height'] = tf.train.Feature(float_list = tf.train.Int64List( value=[ np.array([height],dtype=int64) ] ) )
+        features['X_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X_shape']))
         # 存储丢失的形状信息
         features['data_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X'].shape))
         features['lab_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['Y'].shape))
@@ -509,6 +530,7 @@ if __name__ == '__main__':
         writer.write(tf_serialized)
         print( '%d - %s write' % (nu, item['name']) )
         nu = nu + 1
+    '''
     
     writer.close()
     #print(data)

@@ -474,7 +474,7 @@ if __name__ == '__main__':
         item['Y'] = np.array(Y)
         item['id'] = row['exchange_id']
         item['name'] = row['name']
-        item['X_shape'] = [width, height]
+        item['X_shape'] = [height, width]
         #data.append(item)
         #datalen.append( X.shape[0] )
         writer = tf.python_io.TFRecordWriter('./data/%s.tfrecord' % row['exchange_id'])

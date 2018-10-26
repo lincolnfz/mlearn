@@ -21,8 +21,8 @@ def _parse_data(example_proto):
     parsed_features = tf.parse_single_example(example_proto, features)
 
     img = parsed_features['image']
-    img = tf.decode_raw(img, tf.int16)
-    #img = tf.reshape(img, [-1, 2, 2])
+    img = tf.decode_raw(img, tf.float64)
+    img = tf.reshape(img, [5, 4])
     #img = tf.reshape(img, shape=[2,3])
 
     return img
@@ -31,8 +31,8 @@ def load():
     filenames = ['tf001.tfrecord']
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
-    dataset = dataset.repeat(3)
-    dataset = dataset.batch(1)
+    dataset = dataset.repeat(6)
+    dataset = dataset.batch(100)
 
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
@@ -55,7 +55,8 @@ def load():
 def save_data():
     
     #dataset = np.linspace(-1, 1, height*width)
-    dataset = np.array([[[1, 2],[3,4]], [[5,6],[7,8]], [[9,10],[11,12]]])
+    #dataset = np.array([[[1, 2],[3,4]], [[5,6],[7,8]], [[9,10],[11,12]]])
+    dataset = np.array([[1.1, 2.2,3.3,4.4], [5.5,6.6,7.7,8.8], [9.9,10.1,11.11,12.12], [13.13,14.14,15.15,16.16], [17.17,18.18,19.19,20.2]])
     #dataset = dataset.reshape( [height, width] )
     print(dataset.shape)
     #dataset = dataset.reshape([-1])

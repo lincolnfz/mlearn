@@ -245,14 +245,16 @@ def load():
     filenames = ['./data/600000.tfrecord']
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
-    dataset.shuffle(buffer_size=10000)
+    #dataset.shuffle(buffer_size=10000)
     dataset = dataset.repeat(1)
-    dataset = dataset.batch(50)
+    dataset = dataset.batch(1)
 
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
 
+    X = None
+    Y = None
     '''for i in range(1):
         img = sess.run(next_element)
         print(img.shape)'''
@@ -260,16 +262,21 @@ def load():
         try:
             while True:
                 X, Y = sess.run(next_element)
-                print( X.shape )
-                print( Y.shape )
+                #print( X.shape )
+                #print( Y.shape )
                 #print(img)
+                yield X, Y
         except tf.errors.OutOfRangeError:
             print("end!")
+    #return X, Y
 
 
 if __name__ == '__main__':
     #test()
     #main()
     #tfcord()
-    load()
+    X, Y = load()
+    print(X)
+    X, Y = load()
+    print(X)
         

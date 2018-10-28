@@ -14,12 +14,10 @@ def decode_from_tfrecords(filename, is_batch):
                                            'X_shape' : tf.VarLenFeature(tf.int64),
                                            'lab_shape' : tf.VarLenFeature(tf.int64),
                                        })  #取出包含image和label的feature对象
-    X_shape = features['X_shape'].values
-    Y_shape = features['lab_shape'].values
-    data = features['X'].values
-    data = tf.reshape(data, [-1, X_shape[0], X_shape[1]])
-    label = features['Y'].values
-    label = tf.reshape(label, Y_shape)
+    X_shape = features['X_shape']
+    Y_shape = features['lab_shape']
+    data = tf.reshape(features['X'], X_shape)
+    label = tf.reshape(features['Y'], Y_shape)
  
     if is_batch:
         batch_size = 3
@@ -31,6 +29,33 @@ def decode_from_tfrecords(filename, is_batch):
                                                           capacity=capacity,
                                                           min_after_dequeue=min_after_dequeue)
     return data, label
+
+def test_tfrecord(filename, is_batch):
+    filename_queue = tf.train.string_input_producer([filename], num_epochs=None) #读入流中
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)   #返回文件名和文件
+    features = tf.parse_single_example(serialized_example,
+                                       features={
+                                           'X': tf.VarLenFeature(tf.float32),
+                                           'Y' : tf.VarLenFeature(tf.float32),
+                                           'X_shape' : tf.VarLenFeature(tf.int64),
+                                           'lab_shape' : tf.VarLenFeature(tf.int64),
+                                       })  #取出包含image和label的feature对象
+    X_shape = features['X_shape']
+    Y_shape = features['lab_shape']
+    data = tf.reshape(features['X'], [578,30,13])
+    label = features['Y']
+ 
+    if is_batch:
+        batch_size = 3
+        min_after_dequeue = 10
+        capacity = min_after_dequeue+3*batch_size
+        data, label = tf.train.shuffle_batch([data, label],
+                                                          batch_size=batch_size, 
+                                                          num_threads=3, 
+                                                          capacity=capacity,
+                                                          min_after_dequeue=min_after_dequeue)
+    return data, label    
 
 def train_model(X, Y):
     lr = 1e-3
@@ -110,6 +135,141 @@ def test():
     example = next(tf.python_io.tf_record_iterator("./data/000001.tfrecord"))
     print(tf.train.Example.FromString(example))
 
+def tfcord():
+    data, label = test_tfrecord('./data/000001.tfrecord', False)
+    with tf.Session() as sess:
+        init = tf.global_variables_initializer()
+        sess.run(init)
+        coord=tf.train.Coordinator()
+        threads= tf.train.start_queue_runners(sess=sess, coord=coord, start=True)
+
+        try:
+            pass
+            # while not coord.should_stop():
+            #example, lab = sess.run([data,label])#在会话中取出image和label
+            #print(example)
+            #print('train:')
+            #print(example.shape)
+            #print(l.shape)
+                
+        except tf.errors.OutOfRangeError:
+            print('Done reading')
+        finally:
+            coord.request_stop()
+
+        coord.request_stop()
+        coord.join(threads)
+
+def decode(serialized_example):
+    """Parses an image and label from the given `serialized_example`."""
+    features = tf.parse_single_example(
+        serialized_example,
+        # Defaults are not specified since both keys are required.
+        features={
+            'X': tf.FixedLenFeature([], tf.float32),
+            'Y': tf.FixedLenFeature([], tf.float32),
+        })
+
+    # Convert from a scalar string tensor (whose single string has
+    # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
+    # [mnist.IMAGE_PIXELS].
+    image = features['X']
+
+    # Convert label from a scalar uint8 tensor to an int32 scalar.
+    label = features['Y']
+
+    return image, label
+
+def testcord():
+    dataset = tf.data.TFRecordDataset('./data/000001.tfrecord')
+    dataset = dataset.map(decode)
+    iterator = dataset.make_one_shot_iterator()
+
+    return iterator.get_next()
+
+
+def read_and_decode(filename):
+    #根据文件名生成一个队列
+    filename_queue = tf.train.string_input_producer([filename])
+
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)   #返回文件名和文件
+    features = tf.parse_single_example(serialized_example,
+                                       features={
+                                           'X': tf.FixedLenFeature([], tf.float32),
+                                           'Y' : tf.FixedLenFeature([], tf.float32),
+                                       })
+
+    img = features['X']
+    label = features['Y']
+
+    return img, label
+
+def abcef():
+    img, label = read_and_decode("./data/000001.tfrecord")
+    init = tf.initialize_all_variables()
+
+    with tf.Session() as sess:
+        sess.run(init)
+        threads = tf.train.start_queue_runners(sess=sess)
+        val, l= sess.run([img, label])
+        #我们也可以根据需要对val， l进行处理
+        #l = to_categorical(l, 12) 
+        print(val.shape, l)
+
+def _parse_data(example_proto):
+    features = { 'X': tf.FixedLenFeature((), tf.string, default_value=''),
+                 'Y': tf.FixedLenFeature((), tf.string, default_value=''), 
+                 'x_row': tf.FixedLenFeature( (), tf.int64, default_value=0),
+                 'x_col': tf.FixedLenFeature( (), tf.int64, default_value=0),
+                 'y_row': tf.FixedLenFeature( (), tf.int64, default_value=0),
+                 'y_col': tf.FixedLenFeature( (), tf.int64, default_value=0) }
+    parsed_features = tf.parse_single_example(example_proto, features)
+
+    x_row = parsed_features['x_row']
+    x_col = tf.cast(parsed_features['x_col'], tf.int64)
+    y_row = tf.cast(parsed_features['y_row'], tf.int64)
+    y_col = tf.cast(parsed_features['y_col'], tf.int64)
+    X = parsed_features['X']
+    X = tf.decode_raw(X, tf.float64)
+    X = tf.reshape(X, [x_row, x_col])
+    #img = tf.reshape(img, [2, 2])
+    #img = tf.reshape(img, shape=[2,3])
+    Y = parsed_features['Y']
+    Y = tf.decode_raw(Y, tf.float64)
+    Y = tf.reshape(Y, [y_row, y_col])
+
+    return X, Y
+
+def load():
+    filenames = ['./data/600000.tfrecord']
+    dataset = tf.data.TFRecordDataset(filenames)
+    dataset = dataset.map(_parse_data)
+    dataset.shuffle(buffer_size=10000)
+    dataset = dataset.repeat(1)
+    dataset = dataset.batch(50)
+
+    iterator = dataset.make_one_shot_iterator()
+    next_element = iterator.get_next()
+
+
+    '''for i in range(1):
+        img = sess.run(next_element)
+        print(img.shape)'''
+    with tf.Session() as sess:
+        try:
+            while True:
+                X, Y = sess.run(next_element)
+                print( X.shape )
+                print( Y.shape )
+                #print(img)
+        except tf.errors.OutOfRangeError:
+            print("end!")
+
+
 if __name__ == '__main__':
     #test()
-    main()
+    #main()
+    #tfcord()
+    load()
+        

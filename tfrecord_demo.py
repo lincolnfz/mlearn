@@ -7,22 +7,24 @@ height = 2
 width = 3
 
 def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 def _float_feature(value):
-    return tf.train.Feature(float_list = tf.train.FloatList(value=value))
+    return tf.train.Feature(float_list = tf.train.FloatList(value=[value]))
 
 def _parse_data(example_proto):
-    features = { 'image': tf.FixedLenFeature((), tf.string, default_value='') }
+    features = { 'image': tf.FixedLenFeature((), tf.string, default_value=''),
+                'x': tf.FixedLenFeature( (), tf.int64, default_value=0)}
     #features = { 'image': tf.VarLenFeature(tf.float32) }
     parsed_features = tf.parse_single_example(example_proto, features)
 
     img = parsed_features['image']
     img = tf.decode_raw(img, tf.float64)
     img = tf.reshape(img, [2, 2])
+    x = parsed_features['x']
     #img = tf.reshape(img, shape=[2,3])
 
     return img
@@ -67,6 +69,7 @@ def save_data():
         #print( dataset[i, :] )
         feature = {}
         feature['image'] = _bytes_feature( dataset[idx].tostring() )
+        feature['x'] = _int64_feature(50)
     #feature['data'] = tf.train.Feature(float_list = tf.train.FloatList(value=[0,1,2,3,4,5]))  
     #feature['shape'] =_int64_feature([height, width])
         tf_features = tf.train.Features(feature= feature)

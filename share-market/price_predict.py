@@ -459,82 +459,42 @@ def lightgdm_classifation(id, name):
     #return avg
     return 0.0
 
+def _int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _float_feature(value):
+    return tf.train.Feature(float_list = tf.train.FloatList(value=[value]))
 
 if __name__ == '__main__':
-    os.makedirs('./data')
+    if os.path.exists('./data') == False:
+        os.makedirs('./data')
     symbolid = read_mysql_and_insert_2()
     data = []
     datalen = []
     nu = 0
+    predict = 3
     for idx in symbolid.index:
         row = symbolid.loc[idx, ['exchange_id','name']]
-        X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 30, 3)
-        item = {}
-        item['X'] = np.array(X)
-        item['Y'] = np.array(Y)
-        item['id'] = row['exchange_id']
-        item['name'] = row['name']
-        item['X_shape'] = [height, width]
-        #data.append(item)
-        #datalen.append( X.shape[0] )
+        X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 30, predict)
+        X = np.array(X)
+        Y = np.array(Y)
+        X[0].tostring
         writer = tf.python_io.TFRecordWriter('./data/%s.tfrecord' % row['exchange_id'])
-        xx = item['X'].reshape(-1)
-        yy = item['Y'].reshape(-1)
-        features={}
-        features['X'] = tf.train.Feature(float_list = tf.train.FloatList(value=xx))  
-        features['Y'] = tf.train.Feature(float_list = tf.train.FloatList(value=yy))
-        # 存储丢失的形状信息
-        features['X_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X_shape']))
-        features['lab_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['Y'].shape))
-        #转成tf_features
-        tf_features = tf.train.Features(feature= features)
-        #转成tf_example
-        tf_example = tf.train.Example(features = tf_features)
-
-        #5. 序列化样本
-        tf_serialized = tf_example.SerializeToString()
-
-        #6. 写入样本
-        writer.write(tf_serialized)
+        for idx in range(X.shape[0]):
+            features = {}
+            features['X'] = _bytes_feature(X[idx].tostring())
+            features['Y'] = _bytes_feature(Y[idx].tostring())
+            features['x_row'] = _int64_feature(height)
+            features['x_col'] = _int64_feature(width)
+            features['y_row'] = _int64_feature(1)
+            features['y_col'] = _int64_feature(predict)
+            tf_features = tf.train.Features(feature= features)
+            example = tf.train.Example(features = tf_features)
+            writer.write(example.SerializeToString())
         writer.close()
-        print( '%d - %s done' % (nu, item['name']) )
+        print( '%d - %s done' % (nu, row['name']) )
         nu = nu + 1
-    '''min_len = np.min(datalen)
-
-    
-    nu = 0
-    print(width, height)
-    writer = tf.python_io.TFRecordWriter('%s.tfrecord' %'test')
-    for item in data:
-        item['X'] = np.array(item['X'].iloc[0-min_len:])
-        item['Y'] = np.array(item['Y'][0-min_len:])[:, np.newaxis]
-        xx = item['X'].reshape(-1)
-        yy = item['Y'].reshape(-1)
-        features={}
-        features['X'] = tf.train.Feature(float_list = tf.train.FloatList(value=xx))
-        features['Y'] = tf.train.Feature(float_list = tf.train.FloatList(value=yy))
-        features['X_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X_shape']))
-        # 存储丢失的形状信息
-        features['data_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['X'].shape))
-        features['lab_shape'] = tf.train.Feature(int64_list = tf.train.Int64List(value=item['Y'].shape))
-        
-        #转成tf_features
-        tf_features = tf.train.Features(feature= features)
-        #转成tf_example
-        tf_example = tf.train.Example(features = tf_features)
-
-        #5. 序列化样本
-        tf_serialized = tf_example.SerializeToString()
-
-        #6. 写入样本
-        writer.write(tf_serialized)
-        print( '%d - %s write' % (nu, item['name']) )
-        nu = nu + 1
-    '''
-    
-    writer.close()
-    #print(data)
-    #print(normalized_Y)
-    #plt.figure()
-    #plt.plot( Y, color="red" )
-    #plt.show()
+        break

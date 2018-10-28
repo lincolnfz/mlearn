@@ -22,7 +22,7 @@ def _parse_data(example_proto):
 
     img = parsed_features['image']
     img = tf.decode_raw(img, tf.float64)
-    img = tf.reshape(img, [5, 4])
+    img = tf.reshape(img, [2, 2])
     #img = tf.reshape(img, shape=[2,3])
 
     return img
@@ -31,8 +31,9 @@ def load():
     filenames = ['tf001.tfrecord']
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
-    dataset = dataset.repeat(6)
-    dataset = dataset.batch(100)
+    dataset.shuffle(buffer_size=10000)
+    dataset = dataset.repeat(2)
+    dataset = dataset.batch(3)
 
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
@@ -62,14 +63,16 @@ def save_data():
     #dataset = dataset.reshape([-1])
     writer = tf.python_io.TFRecordWriter('tf001.tfrecord')
     #print(type(dataset))
-    feature = {}
-    feature['image'] = _bytes_feature( dataset.tostring() )
+    for idx in range(dataset.shape[0]):
+        #print( dataset[i, :] )
+        feature = {}
+        feature['image'] = _bytes_feature( dataset[idx].tostring() )
     #feature['data'] = tf.train.Feature(float_list = tf.train.FloatList(value=[0,1,2,3,4,5]))  
     #feature['shape'] =_int64_feature([height, width])
-    tf_features = tf.train.Features(feature= feature)
-    example = tf.train.Example(features = tf_features)
+        tf_features = tf.train.Features(feature= feature)
+        example = tf.train.Example(features = tf_features)
     # write in tfrecords
-    writer.write(example.SerializeToString())
+        writer.write(example.SerializeToString())
     '''dataset = tf.data.Dataset.from_tensor_slices(dataset)
     iterator = dataset.make_one_shot_iterator()
     one_element = iterator.get_next()

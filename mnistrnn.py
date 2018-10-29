@@ -4,7 +4,7 @@ import numpy as np
 from tensorflow.contrib import rnn
 from tensorflow.examples.tutorials.mnist import input_data
 
-with tf.device('/device:GPU:1'):
+with tf.device('/device:GPU:0'):
     # 设置 GPU 按需增长
     config = tf.ConfigProto()
     #config.gpu_options.allow_growth = True
@@ -26,7 +26,7 @@ with tf.device('/device:GPU:1'):
     # 时序持续长度为28，即每做一次预测，需要先输入28行
     timestep_size = 28
     # 每个隐含层的节点数
-    hidden_size = 384
+    hidden_size = 512
     # LSTM layer 的层数
     layer_num = 2
     # 最后输出分类类别数量，如果是回归预测的话应该是 1
@@ -58,7 +58,7 @@ with tf.device('/device:GPU:1'):
         return lstm_cell
 
     # 用tf.nn.rnn_cell MultiRNNCell创建3层RNN
-    mlstm_cell = tf.nn.rnn_cell.MultiRNNCell([get_a_cell() for _ in range(3)]) # 2层RNN
+    mlstm_cell = tf.nn.rnn_cell.MultiRNNCell([get_a_cell() for _ in range(5)]) # 2层RNN
 
     # **步骤4：调用 MultiRNNCell 来实现多层 LSTM
     #mlstm_cell = lstm_cell #rnn.MultiRNNCell([lstm_cell] * layer_num, state_is_tuple=True)

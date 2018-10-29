@@ -57,15 +57,26 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
-def train_model(X, Y):
+_tran_day = 30
+_feature_day = 13
+_batch = 5
+_pre_day = 3
+_X = tf.placeholder(tf.float32, [None, _tran_day*_feature_day], name='x_input')
+_Y = tf.placeholder(tf.float32, [None, _pre_day])
+
+def train_model():
     lr = 1e-3
     with tf.device('/device:GPU:1'):
-        batch_size = X.shape[0]
-        out_size = Y.shape[1]
+        #print(X.shape)
+        #print(Y.shape)
+        X = tf.reshape(_X, [-1, _tran_day, _feature_day])
+        Y = tf.reshape( _Y, [-1, _pre_day] )
+        batch_size = _batch
+        out_size = _pre_day
         # 每个时刻的输入特征是28维的，就是每个时刻输入一行，一行有 28 个像素
-        input_size = X.shape[2]
+        input_size = _feature_day
         # 时序持续长度为28，即每做一次预测，需要先输入28行
-        timestep_size = X.shape[1]
+        timestep_size = _tran_day
         # 每个隐含层的节点数
         hidden_size = 384
         # LSTM layer 的层数
@@ -81,16 +92,16 @@ def train_model(X, Y):
 
         # 用tf.nn.rnn_cell MultiRNNCell创建3层RNN
         mlstm_cell = tf.nn.rnn_cell.MultiRNNCell([get_a_cell() for _ in range(layer_num)]) # 2层RNN
-    
+
         # **步骤5：用全零来初始化state
         init_state = mlstm_cell.zero_state(batch_size, dtype=tf.float32)
         
         outputs, state = tf.nn.dynamic_rnn(mlstm_cell, inputs=X, initial_state=init_state, time_major=False)
         h_state = outputs[:, -1, :]
 
-        print(hidden_size, out_size)
-        W = tf.Variable(tf.truncated_normal([hidden_size, out_size], stddev=0.1), dtype=tf.float32)
-        bias = tf.Variable(tf.constant(0.1,shape=[out_size]), dtype=tf.float32)
+        #print(hidden_size, out_size)
+        W = tf.Variable(tf.truncated_normal([hidden_size, 3], stddev=0.1), dtype=tf.float32)
+        bias = tf.Variable(tf.constant(0.1,shape=[3]), dtype=tf.float32)
         y_pre = tf.add(tf.matmul(h_state, W), bias, name='pre')
         loss = tf.reduce_mean(tf.square(y_pre - Y), name='loss')
 
@@ -232,12 +243,12 @@ def _parse_data(example_proto):
     y_col = tf.cast(parsed_features['y_col'], tf.int64)
     X = parsed_features['X']
     X = tf.decode_raw(X, tf.float64)
-    X = tf.reshape(X, [x_row, x_col])
+    #X = tf.reshape(X, [x_row, x_col])
     #img = tf.reshape(img, [2, 2])
     #img = tf.reshape(img, shape=[2,3])
     Y = parsed_features['Y']
     Y = tf.decode_raw(Y, tf.float64)
-    Y = tf.reshape(Y, [y_row, y_col])
+    #Y = tf.reshape(Y, [y_row, y_col])
 
     return X, Y
 
@@ -246,26 +257,43 @@ def load():
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
     #dataset.shuffle(buffer_size=10000)
-    dataset = dataset.repeat(1)
-    dataset = dataset.batch(1)
+    dataset = dataset.repeat(4000)
+    dataset = dataset.batch(_batch)
+    #dataset = dataset.padded_batch(_batch, padded_shapes=[None])
 
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
+    pre, loss, op = train_model()
+    init = tf.global_variables_initializer()
 
     X = None
     Y = None
     '''for i in range(1):
         img = sess.run(next_element)
         print(img.shape)'''
+    i = 0
     with tf.Session() as sess:
+        
+        sess.run(init)
         try:
             while True:
                 X, Y = sess.run(next_element)
-                #print( X.shape )
-                #print( Y.shape )
-                #print(img)
-                yield X, Y
+                X = X.astype(np.float32)
+                Y = Y.astype(np.float32)
+                #X = tf.cast(X,tf.float32)
+                #Y = tf.cast(Y,tf.float32)
+                if X.shape[0] != _batch:
+                    continue
+
+                #print(X.shape)
+                #print(Y.shape)
+                #
+                sess.run( [op], feed_dict={_X: X, _Y: Y} )
+                i = i + 1
+                if (i % 100) == 0:
+                    loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
+                    print(loaa_val)
         except tf.errors.OutOfRangeError:
             print("end!")
     #return X, Y
@@ -275,8 +303,5 @@ if __name__ == '__main__':
     #test()
     #main()
     #tfcord()
-    X, Y = load()
-    print(X)
-    X, Y = load()
-    print(X)
+    load()
         

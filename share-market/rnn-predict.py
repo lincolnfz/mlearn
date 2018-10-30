@@ -59,14 +59,14 @@ def test_tfrecord(filename, is_batch):
 
 _tran_day = 30
 _feature_day = 13
-_batch = 5
+_batch = 50
 _pre_day = 3
 _X = tf.placeholder(tf.float32, [None, _tran_day*_feature_day], name='x_input')
 _Y = tf.placeholder(tf.float32, [None, _pre_day])
 
 def train_model():
     lr = 1e-3
-    with tf.device('/device:GPU:1'):
+    with tf.device('CPU:0'):
         #print(X.shape)
         #print(Y.shape)
         X = tf.reshape(_X, [-1, _tran_day, _feature_day])
@@ -257,7 +257,7 @@ def load():
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
     #dataset.shuffle(buffer_size=10000)
-    dataset = dataset.repeat(4000)
+    #dataset = dataset.repeat(2)
     dataset = dataset.batch(_batch)
     #dataset = dataset.padded_batch(_batch, padded_shapes=[None])
 
@@ -272,30 +272,40 @@ def load():
     '''for i in range(1):
         img = sess.run(next_element)
         print(img.shape)'''
-    i = 0
+
+    tf.summary.scalar('loss', loss)
+    merged_summary = tf.summary.merge_all()
     with tf.Session() as sess:
         
         sess.run(init)
-        try:
-            while True:
-                X, Y = sess.run(next_element)
-                X = X.astype(np.float32)
-                Y = Y.astype(np.float32)
-                #X = tf.cast(X,tf.float32)
-                #Y = tf.cast(Y,tf.float32)
-                if X.shape[0] != _batch:
-                    continue
+        writer = tf.summary.FileWriter('./data/log/600000/', sess.graph) #save graph
+        for i in range(2000):
+            try:
+                while True:
+                    X, Y = sess.run(next_element)
+                    X = X.astype(np.float32)
+                    Y = Y.astype(np.float32)
+                    #print(X.shape)
+                    #X = tf.cast(X,tf.float32)
+                    #Y = tf.cast(Y,tf.float32)
+                    if X.shape[0] != _batch:
+                        continue
 
-                #print(X.shape)
-                #print(Y.shape)
-                #
-                sess.run( [op], feed_dict={_X: X, _Y: Y} )
-                i = i + 1
-                if (i % 100) == 0:
-                    loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
-                    print(loaa_val)
-        except tf.errors.OutOfRangeError:
-            print("end!")
+                    #print(X.shape)
+                    #print(Y.shape)
+                    #
+                    sess.run( [merged_summary, op], feed_dict={_X: X, _Y: Y} )
+                    '''i = i + 1
+                    if (i % 100) == 0:
+                        loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
+                        print(loaa_val)'''
+            except tf.errors.OutOfRangeError:
+                if (i+1) % 200 == 0:
+                    #sess.run([loss])
+                    print('end: %d' % (i+1))
+                    #sess.run([merged_summary])
+                    #writer.flush()
+                    #writer.add_summary()
     #return X, Y
 
 

@@ -57,6 +57,7 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
+_epoch = 200
 _tran_day = 30
 _feature_day = 13
 _batch = 50
@@ -257,11 +258,11 @@ def load():
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
     #dataset.shuffle(buffer_size=10000)
-    #dataset = dataset.repeat(2)
+    #dataset = dataset.repeat(_epoch)
     dataset = dataset.batch(_batch)
     #dataset = dataset.padded_batch(_batch, padded_shapes=[None])
 
-    iterator = dataset.make_one_shot_iterator()
+    iterator = dataset.make_initializable_iterator() # dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
     pre, loss, op = train_model()
@@ -279,7 +280,8 @@ def load():
         
         sess.run(init)
         writer = tf.summary.FileWriter('./data/log/600000/', sess.graph) #save graph
-        for i in range(2000):
+        for i in range(_epoch):
+            sess.run(iterator.initializer)  #每次都初始化
             try:
                 while True:
                     X, Y = sess.run(next_element)
@@ -294,18 +296,18 @@ def load():
                     #print(X.shape)
                     #print(Y.shape)
                     #
-                    sess.run( [merged_summary, op], feed_dict={_X: X, _Y: Y} )
+                    loss_val, summary_val, _ = sess.run( [loss, merged_summary, op], feed_dict={_X: X, _Y: Y} )
                     '''i = i + 1
                     if (i % 100) == 0:
                         loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
                         print(loaa_val)'''
+                    #print(loss_val)
             except tf.errors.OutOfRangeError:
-                if (i+1) % 200 == 0:
+                if (i+1) % 1 == 0:
                     #sess.run([loss])
-                    print('end: %d' % (i+1))
-                    #sess.run([merged_summary])
-                    #writer.flush()
-                    #writer.add_summary()
+                    print('end: %d, loss: %f' % (i+1, loss_val))
+                    writer.add_summary(summary_val, i+1)
+                    writer.flush()
     #return X, Y
 
 

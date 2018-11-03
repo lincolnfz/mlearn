@@ -501,7 +501,7 @@ if __name__ == '__main__':
         X = np.array(X)
         Y = np.array(Y)
         X_train, X_test, Y_train, Y_test = sklearn.model_selection.train_test_split(X, Y, test_size=0.2, random_state=0)
-        X_train = (X_train - np.mean(X_train, axis=0)) / (np.std( X_train, axis=0 ) + 0.0001)
+        #X_train = (X_train - np.mean(X_train, axis=0)) / (np.std( X_train, axis=0 ) + 0.0001)
         #Y_train = (Y_train - np.mean(Y_train, axis=0)) / (np.std( Y_train, axis=0 ) + 0.0001)
         '''writer = tf.python_io.TFRecordWriter('./data/%s.tfrecord' % row['exchange_id'])
         for idx in range(X.shape[0]):

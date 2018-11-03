@@ -1,6 +1,8 @@
 # -*- coding:utf-8 -*-
 import tensorflow as tf
 from tensorflow.contrib import rnn
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.training import moving_averages
 import numpy as np
 import matplotlib.pyplot as plt
 import json
@@ -59,17 +61,18 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
-_epoch = 100
+_epoch = 800
 _tran_day = 30
 _feature_day = 13
-_batch = 50
+_batch = 20
 _pre_day = 3
 _X = tf.placeholder(tf.float32, [None, _tran_day*_feature_day], name='x_input')
 _Y = tf.placeholder(tf.float32, [None, _pre_day])
+_intrans = tf.placeholder(tf.bool, [])
 
 def train_model():
     lr = 1e-3
-    with tf.device('CPU:0'):
+    with tf.device('GPU:0'):
         #print(X.shape)
         #print(Y.shape)
         X = tf.reshape(_X, [-1, _tran_day, _feature_day])
@@ -99,6 +102,7 @@ def train_model():
         # **步骤5：用全零来初始化state
         init_state = mlstm_cell.zero_state(batch_size, dtype=tf.float32)
         
+        X_bn = bn(X, _intrans, [_batch, _feature_day])
         outputs, state = tf.nn.dynamic_rnn(mlstm_cell, inputs=X, initial_state=init_state, time_major=False)
         h_state = outputs[:, -1, :]
 
@@ -115,6 +119,39 @@ def train_model():
         train_op = optimizer.apply_gradients(zip(grads, variables))
         return y_pre, loss, train_op, mae
 
+def _get_variable(myname, shape, initializer, trainable = True):
+    return tf.get_variable(myname,
+                           shape=shape,
+                           initializer=initializer,
+                           dtype=tf.float32,
+                           trainable=trainable)
+    
+BN_DECAY = 0.9
+BN_EPSILON = 0.1
+def bn(x, is_training, params_shape):
+    x_shape = x.get_shape()
+    params_shape = x_shape[-1:]
+
+    axis = list(range(len(x_shape) - 1))
+
+    beta = _get_variable('beta', params_shape, initializer=tf.zeros_initializer())
+    gamma = _get_variable('gamma', params_shape, initializer=tf.ones_initializer())
+
+    moving_mean = _get_variable('moving_mean', params_shape, initializer=tf.zeros_initializer(), trainable=False)
+    moving_variance = _get_variable('moving_variance', params_shape, initializer=tf.ones_initializer(), trainable=False)
+
+    # These ops will only be preformed when training.
+    mean, variance = tf.nn.moments(x, axis)
+    update_moving_mean = moving_averages.assign_moving_average(moving_mean, mean, BN_DECAY)
+    update_moving_variance = moving_averages.assign_moving_average(moving_variance, variance, BN_DECAY)
+    #tf.add_to_collection(UPDATE_OPS_COLLECTION, update_moving_mean)
+    #tf.add_to_collection(UPDATE_OPS_COLLECTION, update_moving_variance)
+
+    mean, variance = control_flow_ops.cond(
+        is_training, lambda: (mean, variance),
+        lambda: (moving_mean, moving_variance))
+
+    return tf.nn.batch_normalization(x, mean, variance, beta, gamma, BN_EPSILON)
 
 def main():
     data, label = decode_from_tfrecords('./data/000001.tfrecord', False)
@@ -262,6 +299,7 @@ tf.summary.scalar('mae', mae)
 merged_summary = tf.summary.merge_all()
 
 def load(idx, id, name):
+    print('proc %d, %s, %s'%(idx, id, name))
     filenames = ['./data/%s_train.tfrecord'% id]
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
@@ -276,7 +314,7 @@ def load(idx, id, name):
     #pre, loss, op, mae = train_model()
     init = tf.global_variables_initializer()
 
-    dataset_test = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%id)
+    dataset_test = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%(id) )
     dataset_test = dataset_test.map(_parse_data)
     dataset_test = dataset_test.batch(_batch)
     dataset_test = dataset_test.repeat(1)
@@ -297,7 +335,7 @@ def load(idx, id, name):
     out_mae = []
     with tf.Session() as sess:
         sess.run(init)
-        writer = tf.summary.FileWriter('./data/log/600000/', sess.graph) #save graph
+        writer = tf.summary.FileWriter('./data/log/%s/'%(id), sess.graph) #save graph
         for i in range(_epoch):
             sess.run(iterator.initializer)  #每次都初始化
             try:
@@ -314,7 +352,7 @@ def load(idx, id, name):
                     #print(X.shape)
                     #print(Y.shape)
                     #
-                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y} )
+                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y, _intrans: True} )
                     '''i = i + 1
                     if (i % 100) == 0:
                         loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
@@ -328,11 +366,12 @@ def load(idx, id, name):
                             X_test, Y_test = sess.run(next_element_test)
                             X_test = X_test.astype(np.float32)
                             Y_test = Y_test.astype(np.float32)
+                            #print(X_test.shape)
                             if X_test.shape[0] != _batch:
                                 continue
 
                             
-                            mae_val, summary_val = sess.run( [mae, merged_summary], feed_dict={_X: X_test, _Y: Y_test} )
+                            mae_val, summary_val = sess.run( [mae, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _intrans: False} )
                             mae_list.append(mae_val)
                         except tf.errors.OutOfRangeError:
                             iterator_test = dataset_test.make_one_shot_iterator()
@@ -345,10 +384,10 @@ def load(idx, id, name):
                     writer.add_summary( summary_val, i+1 )
                     writer.flush()
         model_save = tf.train.Saver()
-        model_save.save( sess, './data/log/%s/model.ckpt'%id )
+        model_save.save( sess, './data/log/%s/model.ckpt'%(id) )
         img = plt.figure()
         plt.plot( out_mae )
-        plt.savefig('./data/log/%s/out.png'%id)
+        plt.savefig('./data/log/%s/out.png'%(id) )
         plt.close(img)
     #return X, Y
 
@@ -358,10 +397,10 @@ if __name__ == '__main__':
     #main()
     #tfcord()
     #load()
+    #load(1, '600025', 'aa' )
     idx = 1
     with open('./data/total.json', 'r') as f:
         marks = json.load(fp = f)
         for item in marks:
             load(idx, item['id'], item['name'] )
             idx = idx + 1
-            #break

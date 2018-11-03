@@ -2,6 +2,8 @@
 import tensorflow as tf
 from tensorflow.contrib import rnn
 import numpy as np
+import matplotlib.pyplot as plt
+import json
 
 def decode_from_tfrecords(filename, is_batch):
     filename_queue = tf.train.string_input_producer([filename], num_epochs=None) #读入流中
@@ -57,7 +59,7 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
-_epoch = 200
+_epoch = 100
 _tran_day = 30
 _feature_day = 13
 _batch = 50
@@ -79,7 +81,7 @@ def train_model():
         # 时序持续长度为28，即每做一次预测，需要先输入28行
         timestep_size = _tran_day
         # 每个隐含层的节点数
-        hidden_size = 384
+        hidden_size = 48
         # LSTM layer 的层数
         layer_num = 2
         # **步骤2：定义一层 LSTM_cell，只需要说明 hidden_size, 它会自动匹配输入的 X 的维度
@@ -105,12 +107,13 @@ def train_model():
         bias = tf.Variable(tf.constant(0.1,shape=[3]), dtype=tf.float32)
         y_pre = tf.add(tf.matmul(h_state, W), bias, name='pre')
         loss = tf.reduce_mean(tf.square(y_pre - Y), name='loss')
+        mae = tf.reduce_mean( tf.abs(y_pre - Y) , name='mae' )
 
         optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=0.5)
         grads, variables = zip(*optimizer.compute_gradients(loss))
         grads, global_norm = tf.clip_by_global_norm(grads, 5)
         train_op = optimizer.apply_gradients(zip(grads, variables))
-        return y_pre, loss, train_op
+        return y_pre, loss, train_op, mae
 
 
 def main():
@@ -253,11 +256,16 @@ def _parse_data(example_proto):
 
     return X, Y
 
-def load():
-    filenames = ['./data/600000.tfrecord']
+pre, loss, op, mae = train_model()
+tf.summary.scalar('loss', loss)
+tf.summary.scalar('mae', mae)
+merged_summary = tf.summary.merge_all()
+
+def load(idx, id, name):
+    filenames = ['./data/%s_train.tfrecord'% id]
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
-    #dataset.shuffle(buffer_size=10000)
+    dataset.shuffle(buffer_size=10000)
     #dataset = dataset.repeat(_epoch)
     dataset = dataset.batch(_batch)
     #dataset = dataset.padded_batch(_batch, padded_shapes=[None])
@@ -265,8 +273,20 @@ def load():
     iterator = dataset.make_initializable_iterator() # dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
-    pre, loss, op = train_model()
+    #pre, loss, op, mae = train_model()
     init = tf.global_variables_initializer()
+
+    dataset_test = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%id)
+    dataset_test = dataset_test.map(_parse_data)
+    dataset_test = dataset_test.batch(_batch)
+    dataset_test = dataset_test.repeat(1)
+    dataset_test.shuffle(buffer_size=10000)
+    iterator_test = dataset_test.make_one_shot_iterator()
+    next_element_test = iterator_test.get_next() 
+
+    #tf.summary.scalar('loss', loss)
+    #tf.summary.scalar('mae', mae)
+    #merged_summary = tf.summary.merge_all()
 
     X = None
     Y = None
@@ -274,10 +294,8 @@ def load():
         img = sess.run(next_element)
         print(img.shape)'''
 
-    tf.summary.scalar('loss', loss)
-    merged_summary = tf.summary.merge_all()
+    out_mae = []
     with tf.Session() as sess:
-        
         sess.run(init)
         writer = tf.summary.FileWriter('./data/log/600000/', sess.graph) #save graph
         for i in range(_epoch):
@@ -296,7 +314,7 @@ def load():
                     #print(X.shape)
                     #print(Y.shape)
                     #
-                    loss_val, summary_val, _ = sess.run( [loss, merged_summary, op], feed_dict={_X: X, _Y: Y} )
+                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y} )
                     '''i = i + 1
                     if (i % 100) == 0:
                         loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
@@ -304,10 +322,34 @@ def load():
                     #print(loss_val)
             except tf.errors.OutOfRangeError:
                 if (i+1) % 1 == 0:
-                    #sess.run([loss])
-                    print('end: %d, loss: %f' % (i+1, loss_val))
-                    writer.add_summary(summary_val, i+1)
+                    mae_list = []
+                    while True:
+                        try:
+                            X_test, Y_test = sess.run(next_element_test)
+                            X_test = X_test.astype(np.float32)
+                            Y_test = Y_test.astype(np.float32)
+                            if X_test.shape[0] != _batch:
+                                continue
+
+                            
+                            mae_val, summary_val = sess.run( [mae, merged_summary], feed_dict={_X: X_test, _Y: Y_test} )
+                            mae_list.append(mae_val)
+                        except tf.errors.OutOfRangeError:
+                            iterator_test = dataset_test.make_one_shot_iterator()
+                            next_element_test = iterator_test.get_next()
+                            break
+                    
+                    mae_mean = np.mean( np.array(mae_list) )
+                    print('idx: %d, name: %s, epoch: (%d / %d), loss: %f, mae: %f' % (idx, name, i+1, _epoch, loss_val, mae_mean))
+                    out_mae.append(mae_mean)
+                    writer.add_summary( summary_val, i+1 )
                     writer.flush()
+        model_save = tf.train.Saver()
+        model_save.save( sess, './data/log/%s/model.ckpt'%id )
+        img = plt.figure()
+        plt.plot( out_mae )
+        plt.savefig('./data/log/%s/out.png'%id)
+        plt.close(img)
     #return X, Y
 
 
@@ -315,5 +357,11 @@ if __name__ == '__main__':
     #test()
     #main()
     #tfcord()
-    load()
-        
+    #load()
+    idx = 1
+    with open('./data/total.json', 'r') as f:
+        marks = json.load(fp = f)
+        for item in marks:
+            load(idx, item['id'], item['name'] )
+            idx = idx + 1
+            #break

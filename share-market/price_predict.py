@@ -19,6 +19,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn import svm
 import lightgbm as lgb
 import tensorflow as tf
+import sklearn
 
 db_pass = '123abc'
  
@@ -251,11 +252,13 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
         X = None
         Y = None
         width = 0
-        df = (df - df.mean()) / (df.std()+0.0001)
+        orig_df = df
+        #df = (df - df.mean()) / (df.std()+0.0001)
+        #orig_df = df
 
         for idx in  range(total_slice):
             x = df.iloc[idx:idx+slice_group]
-            y = df.iloc[idx+slice_group: idx+slice_group+predict]
+            y = orig_df.iloc[idx+slice_group: idx+slice_group+predict]
             #x = x.reset_index()
             x_combin = x.iloc[0]
             width = x_combin.shape[0]
@@ -468,6 +471,21 @@ def _bytes_feature(value):
 def _float_feature(value):
     return tf.train.Feature(float_list = tf.train.FloatList(value=[value]))
 
+def write_tfrecord(path,  X, Y, Xheight, Xwidth, YHeight, YWidth ):
+    writer = tf.python_io.TFRecordWriter(path)
+    for idx in range(X.shape[0]):
+        features = {}
+        features['X'] = _bytes_feature(X[idx].tostring())
+        features['Y'] = _bytes_feature(Y[idx].tostring())
+        features['x_row'] = _int64_feature(Xheight)
+        features['x_col'] = _int64_feature(Xwidth)
+        features['y_row'] = _int64_feature(YHeight)
+        features['y_col'] = _int64_feature(YWidth)
+        tf_features = tf.train.Features(feature= features)
+        example = tf.train.Example(features = tf_features)
+        writer.write(example.SerializeToString())
+    writer.close()
+
 if __name__ == '__main__':
     if os.path.exists('./data') == False:
         os.makedirs('./data')
@@ -476,13 +494,16 @@ if __name__ == '__main__':
     datalen = []
     nu = 0
     predict = 3
+    total = []
     for idx in symbolid.index:
         row = symbolid.loc[idx, ['exchange_id','name']]
         X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 30, predict)
         X = np.array(X)
         Y = np.array(Y)
-        X[0].tostring
-        writer = tf.python_io.TFRecordWriter('./data/%s.tfrecord' % row['exchange_id'])
+        X_train, X_test, Y_train, Y_test = sklearn.model_selection.train_test_split(X, Y, test_size=0.2, random_state=0)
+        X_train = (X_train - np.mean(X_train, axis=0)) / (np.std( X_train, axis=0 ) + 0.0001)
+        #Y_train = (Y_train - np.mean(Y_train, axis=0)) / (np.std( Y_train, axis=0 ) + 0.0001)
+        '''writer = tf.python_io.TFRecordWriter('./data/%s.tfrecord' % row['exchange_id'])
         for idx in range(X.shape[0]):
             features = {}
             features['X'] = _bytes_feature(X[idx].tostring())
@@ -494,7 +515,19 @@ if __name__ == '__main__':
             tf_features = tf.train.Features(feature= features)
             example = tf.train.Example(features = tf_features)
             writer.write(example.SerializeToString())
-        writer.close()
-        print( '%d - %s done' % (nu, row['name']) )
+        writer.close()'''
+        testpath = './data/%s_test.tfrecord' % row['exchange_id']
+        trainpath = './data/%s_train.tfrecord' % row['exchange_id']
+        write_tfrecord(trainpath, X_train, Y_train, height, width, 1, predict)
+        write_tfrecord(testpath, X_test, Y_test, height, width, 1, predict)
+        #print(testpath)
+        #print(trainpath)
+        item = { 'id': row['exchange_id'], 'name': row['name'] }
+        total.append(item)
+        print( '%d - %s done' % (nu+1, row['name']) )
         nu = nu + 1
-        break
+        #if nu > 3:
+        #    break
+
+    with open('./data/total.json', 'w') as f:
+        json.dump(obj = total, fp = f )

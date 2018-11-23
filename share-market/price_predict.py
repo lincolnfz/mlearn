@@ -493,7 +493,7 @@ if __name__ == '__main__':
     data = []
     datalen = []
     nu = 0
-    predict = 3
+    predict = 1
     total = []
     for idx in symbolid.index:
         row = symbolid.loc[idx, ['exchange_id','name']]

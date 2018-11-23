@@ -65,14 +65,14 @@ _epoch = 800
 _tran_day = 30
 _feature_day = 13
 _batch = 20
-_pre_day = 3
+_pre_day = 1
 _X = tf.placeholder(tf.float32, [None, _tran_day*_feature_day], name='x_input')
 _Y = tf.placeholder(tf.float32, [None, _pre_day])
 _intrans = tf.placeholder(tf.bool, [])
 
 def train_model():
     lr = 1e-3
-    with tf.device('GPU:0'):
+    with tf.device('CPU:0'):
         #print(X.shape)
         #print(Y.shape)
         X = tf.reshape(_X, [-1, _tran_day, _feature_day])
@@ -107,7 +107,7 @@ def train_model():
         h_state = outputs[:, -1, :]
 
         #print(hidden_size, out_size)
-        W = tf.Variable(tf.truncated_normal([hidden_size, 3], stddev=0.1), dtype=tf.float32)
+        W = tf.Variable(tf.truncated_normal([hidden_size, _pre_day], stddev=0.1), dtype=tf.float32)
         bias = tf.Variable(tf.constant(0.1,shape=[3]), dtype=tf.float32)
         y_pre = tf.add(tf.matmul(h_state, W), bias, name='pre')
         loss = tf.reduce_mean(tf.square(y_pre - Y), name='loss')
@@ -299,6 +299,8 @@ tf.summary.scalar('mae', mae)
 merged_summary = tf.summary.merge_all()
 
 def load(idx, id, name):
+    #if id != '600009':
+    #    return
     print('proc %d, %s, %s'%(idx, id, name))
     filenames = ['./data/%s_train.tfrecord'% id]
     dataset = tf.data.TFRecordDataset(filenames)
@@ -333,6 +335,7 @@ def load(idx, id, name):
         print(img.shape)'''
 
     out_mae = []
+    loss_list = []
     with tf.Session() as sess:
         sess.run(init)
         writer = tf.summary.FileWriter('./data/log/%s/'%(id), sess.graph) #save graph
@@ -381,12 +384,14 @@ def load(idx, id, name):
                     mae_mean = np.mean( np.array(mae_list) )
                     print('idx: %d, name: %s, epoch: (%d / %d), loss: %f, mae: %f' % (idx, name, i+1, _epoch, loss_val, mae_mean))
                     out_mae.append(mae_mean)
+                    loss_list.append(loss_val)
                     writer.add_summary( summary_val, i+1 )
                     writer.flush()
         model_save = tf.train.Saver()
         model_save.save( sess, './data/log/%s/model.ckpt'%(id) )
         img = plt.figure()
-        plt.plot( out_mae )
+        plt.plot( out_mae, color='g' )
+        plt.plot( loss_list, color='red' )
         plt.savefig('./data/log/%s/out.png'%(id) )
         plt.close(img)
     #return X, Y

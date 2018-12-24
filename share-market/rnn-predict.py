@@ -5,6 +5,7 @@ from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.training import moving_averages
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import json
 
 def decode_from_tfrecords(filename, is_batch):
@@ -61,10 +62,10 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
-_epoch = 800
+_epoch = 1
 _tran_day = 30
 _feature_day = 13
-_batch = 20
+_batch = tf.placeholder(tf.int32 , [], name='batch')
 _pre_day = 4
 _X = tf.placeholder(tf.float32, [None, _tran_day*_feature_day], name='x_input')
 _Y = tf.placeholder(tf.float32, [None, _pre_day])
@@ -77,7 +78,7 @@ def train_model():
         #print(Y.shape)
         X = tf.reshape(_X, [-1, _tran_day, _feature_day])
         Y = tf.reshape( _Y, [-1, _pre_day] )
-        batch_size = _batch
+        #batch_size = _batch
         out_size = _pre_day
         # 每个时刻的输入特征是28维的，就是每个时刻输入一行，一行有 28 个像素
         input_size = _feature_day
@@ -100,9 +101,9 @@ def train_model():
         mlstm_cell = tf.nn.rnn_cell.MultiRNNCell([get_a_cell() for _ in range(layer_num)]) # 2层RNN
 
         # **步骤5：用全零来初始化state
-        init_state = mlstm_cell.zero_state(batch_size, dtype=tf.float32)
+        init_state = mlstm_cell.zero_state(_batch, dtype=tf.float32)
         
-        X_bn = bn(X, _intrans, [_batch, _feature_day])
+        #X_bn = bn(X, _intrans, [_batch, _feature_day])
         outputs, state = tf.nn.dynamic_rnn(mlstm_cell, inputs=X, initial_state=init_state, time_major=False)
         h_state = outputs[:, -1, :]
 
@@ -307,7 +308,7 @@ def load(idx, id, name):
     dataset = dataset.map(_parse_data)
     dataset.shuffle(buffer_size=10000)
     #dataset = dataset.repeat(_epoch)
-    dataset = dataset.batch(_batch)
+    dataset = dataset.batch(20)
     #dataset = dataset.padded_batch(_batch, padded_shapes=[None])
 
     iterator = dataset.make_initializable_iterator() # dataset.make_one_shot_iterator()
@@ -318,11 +319,11 @@ def load(idx, id, name):
 
     dataset_test = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%(id) )
     dataset_test = dataset_test.map(_parse_data)
-    dataset_test = dataset_test.batch(_batch)
+    dataset_test = dataset_test.batch(20)
     dataset_test = dataset_test.repeat(1)
     dataset_test.shuffle(buffer_size=10000)
     iterator_test = dataset_test.make_one_shot_iterator()
-    next_element_test = iterator_test.get_next() 
+    next_element_test = iterator_test.get_next()
 
     #tf.summary.scalar('loss', loss)
     #tf.summary.scalar('mae', mae)
@@ -349,13 +350,13 @@ def load(idx, id, name):
                     #print(X.shape)
                     #X = tf.cast(X,tf.float32)
                     #Y = tf.cast(Y,tf.float32)
-                    if X.shape[0] != _batch:
+                    if X.shape[0] != 20:
                         continue
 
                     #print(X.shape)
                     #print(Y.shape)
                     #
-                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y, _intrans: True} )
+                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y, _batch:20, _intrans: True} )
                     '''i = i + 1
                     if (i % 100) == 0:
                         loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
@@ -370,11 +371,11 @@ def load(idx, id, name):
                             X_test = X_test.astype(np.float32)
                             Y_test = Y_test.astype(np.float32)
                             #print(X_test.shape)
-                            if X_test.shape[0] != _batch:
+                            if X_test.shape[0] != 20:
                                 continue
 
                             
-                            mse_val, summary_val = sess.run( [mse, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _intrans: False} )
+                            mse_val, summary_val = sess.run( [mse, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _batch:20, _intrans: False} )
                             mse_list.append(mse_val)
                         except tf.errors.OutOfRangeError:
                             iterator_test = dataset_test.make_one_shot_iterator()
@@ -389,12 +390,65 @@ def load(idx, id, name):
                     writer.flush()
         model_save = tf.train.Saver()
         model_save.save( sess, './data/log/%s/model.ckpt'%(id) )
+
         img = plt.figure()
         plt.plot( out_mse, color='g' )
         plt.plot( loss_list, color='red' )
         plt.savefig('./data/log/%s/out.png'%(id) )
         plt.close(img)
+
+        
     #return X, Y
+
+def preval(idx, id, name):
+    mpl.rcParams['font.sans-serif'] = u'SimHei'
+    mpl.rcParams['axes.unicode_minus'] = False
+    dataset_eval = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%(id) )
+    dataset_eval = dataset_eval.map(_parse_data)
+    dataset_eval = dataset_eval.batch(1)
+    dataset_eval = dataset_eval.repeat(1)
+    iterator_eval = dataset_eval.make_one_shot_iterator()
+    next_element_eval = iterator_eval.get_next()
+
+    meta_file = './data/log/%s/model.ckpt.meta'%(id)
+    saver = tf.train.import_meta_graph(meta_file)
+    chk = './data/log/%s'%(id)
+    with tf.Session() as sess:
+        saver.restore(sess, tf.train.latest_checkpoint(chk))
+        graph = tf.get_default_graph()
+        X_input = graph.get_tensor_by_name('x_input:0')
+        batch_size = graph.get_tensor_by_name('batch:0')
+        pre_vals = None
+        real_vals = None
+        while True:
+            try:
+                X_eval, Y_eval = sess.run(next_element_eval)
+                X_eval = X_eval.astype(np.float32)
+                Y_eval = Y_eval.astype(np.float32)
+                if pre_vals is None:
+                    pre_vals = sess.run( [pre], feed_dict={X_input: X_eval, batch_size: 1} )
+                    real_vals = Y_eval
+                else:
+                    out_vals = sess.run( [pre], feed_dict={X_input: X_eval, batch_size: 1} )
+                    pre_vals = np.row_stack( (pre_vals, out_vals) )
+                    real_vals = np.row_stack( (real_vals, Y_eval) ) 
+                
+            except tf.errors.OutOfRangeError:
+                pre_vals = np.reshape( pre_vals, [-1, 4] )
+                real_vals = np.reshape( real_vals, [-1, 4] )
+                #print(pre_vals)
+                #print(real_vals)
+                img, ax = plt.subplots()
+                t = np.arange(pre_vals.shape[0])
+                ax.plot(t,  real_vals[:,0], 'r-', linewidth=1, label='real')
+                ax.plot(t, pre_vals[:,0], 'g.', alpha=0.6, linewidth=2, label='pre')
+                plt.grid()
+                #plt.show()
+                legend = ax.legend(loc='upper center', shadow=True, fontsize='x-large')
+                # Put a nicer background color on the legend.
+                legend.get_frame().set_facecolor('#00FFCC')
+                plt.savefig('./data/log/%s/low_price.png'%(id) )
+                break
 
 
 if __name__ == '__main__':
@@ -408,4 +462,5 @@ if __name__ == '__main__':
         marks = json.load(fp = f)
         for item in marks:
             load(idx, item['id'], item['name'] )
+            preval(idx, item['id'], item['name'])
             idx = idx + 1

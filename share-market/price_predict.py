@@ -275,10 +275,16 @@ def getDataStock(stockid, begin_date, slice_group, predict=1):
                 y_value = 1'''
             y_item = []
             for y_i in y.index:
-                val = (y.loc[y_i, 'high_price'] + y.loc[y_i, 'low_price']) / 2.0
-                y_item.append( val )
+                #val = (y.loc[y_i, 'high_price'] + y.loc[y_i, 'low_price']) / 2.0
+                y_item.append(y.loc[y_i, 'low_price'])
+                y_item.append(y.loc[y_i, 'high_price'])
+                y_item.append(y.loc[y_i, 'close_price'])
+                y_item.append(y.loc[y_i, 'ma5'])
+                #y_item.append( val )
             y_item = np.array(y_item)
             y_item = pd.DataFrame(data=y_item, columns=['qu'])
+            #pri_val = y_item.shape[1]
+            #print(y_item.shape)
             #print(y_item)
             #break
             #X.append(x_combin)
@@ -500,6 +506,8 @@ if __name__ == '__main__':
         X, Y, width, height = getDataStock(row['exchange_id'], '2000-01-01', 30, predict)
         X = np.array(X)
         Y = np.array(Y)
+        print(X.shape)
+        print(Y.shape)
         X_train, X_test, Y_train, Y_test = sklearn.model_selection.train_test_split(X, Y, test_size=0.2, random_state=0)
         #X_train = (X_train - np.mean(X_train, axis=0)) / (np.std( X_train, axis=0 ) + 0.0001)
         #Y_train = (Y_train - np.mean(Y_train, axis=0)) / (np.std( Y_train, axis=0 ) + 0.0001)
@@ -518,15 +526,15 @@ if __name__ == '__main__':
         writer.close()'''
         testpath = './data/%s_test.tfrecord' % row['exchange_id']
         trainpath = './data/%s_train.tfrecord' % row['exchange_id']
-        write_tfrecord(trainpath, X_train, Y_train, height, width, 1, predict)
-        write_tfrecord(testpath, X_test, Y_test, height, width, 1, predict)
+        write_tfrecord(trainpath, X_train, Y_train, height, width, 1, 4)
+        write_tfrecord(testpath, X_test, Y_test, height, width, 1, 4)
         #print(testpath)
         #print(trainpath)
         item = { 'id': row['exchange_id'], 'name': row['name'] }
         total.append(item)
         print( '%d - %s done' % (nu+1, row['name']) )
         nu = nu + 1
-        #if nu > 3:
+        #if nu > 1:
         #    break
 
     with open('./data/total.json', 'w') as f:

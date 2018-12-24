@@ -65,7 +65,7 @@ _epoch = 800
 _tran_day = 30
 _feature_day = 13
 _batch = 20
-_pre_day = 1
+_pre_day = 4
 _X = tf.placeholder(tf.float32, [None, _tran_day*_feature_day], name='x_input')
 _Y = tf.placeholder(tf.float32, [None, _pre_day])
 _intrans = tf.placeholder(tf.bool, [])
@@ -108,16 +108,16 @@ def train_model():
 
         #print(hidden_size, out_size)
         W = tf.Variable(tf.truncated_normal([hidden_size, _pre_day], stddev=0.1), dtype=tf.float32)
-        bias = tf.Variable(tf.constant(0.1,shape=[3]), dtype=tf.float32)
+        bias = tf.Variable(tf.constant(0.1,shape=[_pre_day]), dtype=tf.float32)
         y_pre = tf.add(tf.matmul(h_state, W), bias, name='pre')
         loss = tf.reduce_mean(tf.square(y_pre - Y), name='loss')
-        mae = tf.reduce_mean( tf.abs(y_pre - Y) , name='mae' )
+        mse = tf.reduce_mean( tf.square(y_pre - Y) , name='mse' )
 
         optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=0.5)
         grads, variables = zip(*optimizer.compute_gradients(loss))
         grads, global_norm = tf.clip_by_global_norm(grads, 5)
         train_op = optimizer.apply_gradients(zip(grads, variables))
-        return y_pre, loss, train_op, mae
+        return y_pre, loss, train_op, mse
 
 def _get_variable(myname, shape, initializer, trainable = True):
     return tf.get_variable(myname,
@@ -293,9 +293,9 @@ def _parse_data(example_proto):
 
     return X, Y
 
-pre, loss, op, mae = train_model()
+pre, loss, op, mse = train_model()
 tf.summary.scalar('loss', loss)
-tf.summary.scalar('mae', mae)
+tf.summary.scalar('mse', mse)
 merged_summary = tf.summary.merge_all()
 
 def load(idx, id, name):
@@ -334,7 +334,7 @@ def load(idx, id, name):
         img = sess.run(next_element)
         print(img.shape)'''
 
-    out_mae = []
+    out_mse = []
     loss_list = []
     with tf.Session() as sess:
         sess.run(init)
@@ -363,7 +363,7 @@ def load(idx, id, name):
                     #print(loss_val)
             except tf.errors.OutOfRangeError:
                 if (i+1) % 1 == 0:
-                    mae_list = []
+                    mse_list = []
                     while True:
                         try:
                             X_test, Y_test = sess.run(next_element_test)
@@ -374,23 +374,23 @@ def load(idx, id, name):
                                 continue
 
                             
-                            mae_val, summary_val = sess.run( [mae, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _intrans: False} )
-                            mae_list.append(mae_val)
+                            mse_val, summary_val = sess.run( [mse, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _intrans: False} )
+                            mse_list.append(mse_val)
                         except tf.errors.OutOfRangeError:
                             iterator_test = dataset_test.make_one_shot_iterator()
                             next_element_test = iterator_test.get_next()
                             break
                     
-                    mae_mean = np.mean( np.array(mae_list) )
-                    print('idx: %d, name: %s, epoch: (%d / %d), loss: %f, mae: %f' % (idx, name, i+1, _epoch, loss_val, mae_mean))
-                    out_mae.append(mae_mean)
+                    mse_mean = np.mean( np.array(mse_list) )
+                    print('idx: %d, name: %s, epoch: (%d / %d), loss: %f, mse: %f' % (idx, name, i+1, _epoch, loss_val, mse_mean))
+                    out_mse.append(mse_mean)
                     loss_list.append(loss_val)
                     writer.add_summary( summary_val, i+1 )
                     writer.flush()
         model_save = tf.train.Saver()
         model_save.save( sess, './data/log/%s/model.ckpt'%(id) )
         img = plt.figure()
-        plt.plot( out_mae, color='g' )
+        plt.plot( out_mse, color='g' )
         plt.plot( loss_list, color='red' )
         plt.savefig('./data/log/%s/out.png'%(id) )
         plt.close(img)

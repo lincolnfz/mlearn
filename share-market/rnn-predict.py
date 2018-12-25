@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
 import json
+import csv
 
 def getChineseFont():  
-    return FontProperties(fname='/System/Library/Fonts/PingFang.ttc',size=15) 
+    #return FontProperties(fname='/System/Library/Fonts/PingFang.ttc',size=15)
+    return FontProperties(fname='c:/Windows/Fonts/simsun.ttc',size=15) 
 
 def decode_from_tfrecords(filename, is_batch):
     filename_queue = tf.train.string_input_producer([filename], num_epochs=None) #读入流中
@@ -66,7 +68,7 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
-_epoch = 600
+_epoch = 800
 _tran_day = 30
 _feature_day = 13
 _batch = tf.placeholder(tf.int32 , [], name='batch')
@@ -77,7 +79,7 @@ _intrans = tf.placeholder(tf.bool, [])
 
 def train_model():
     lr = 1e-3
-    with tf.device('CPU:0'):
+    with tf.device('GPU:0'):
         #print(X.shape)
         #print(Y.shape)
         X = tf.reshape(_X, [-1, _tran_day, _feature_day])
@@ -325,7 +327,7 @@ def load(idx, id, name):
 
     dataset_test = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%(id) )
     dataset_test = dataset_test.map(_parse_data)
-    dataset_test = dataset_test.batch(20)
+    dataset_test = dataset_test.batch(50)
     dataset_test = dataset_test.repeat(1)
     dataset_test.shuffle(buffer_size=10000)
     iterator_test = dataset_test.make_one_shot_iterator()
@@ -457,6 +459,20 @@ def load(idx, id, name):
                     #legend.get_frame().set_facecolor('#00FFCC')
                     plt.savefig('./data/log/%s/%d.png'%(id,i) )
                     i = i + 1
+
+                filename = './data/log/train.csv'
+                #csv_row = {'id':id,'low':mse_out[0,0],'high':mse_out[1,1],'close':mse_out[2,2],'ma5':mse_out[3,3]}
+                v0 = '%.3f'%mse_out[0,0]
+                v1 = '%.3f'%mse_out[1,1]
+                v2 = '%.3f'%mse_out[2,2]
+                v3 = '%.3f'%mse_out[3,3]
+                #csv_row = id + ',' + v0 + ',' +  v1 + ',' + v2 + ',' + v3
+                #print(csv_row)
+                csv_row = [id,v0,v1,v2,v3]
+                with open(filename, 'a+', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(csv_row)
+                    pass
                 break
 
         
@@ -509,7 +525,7 @@ def preval(idx, id, name):
                 legend = plt.legend(shadow=True, fontsize='x-large')
                 # Put a nicer background color on the legend.
                 #legend.get_frame().set_facecolor('#00FFCC')
-                plt.savefig('./data/log/%s/low_price.png'%(id) )
+                plt.savefig('./data/log/%s/low_price.png'%(id) )                
                 break
 
 

@@ -6,7 +6,11 @@ from tensorflow.python.training import moving_averages
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.font_manager import FontProperties
 import json
+
+def getChineseFont():  
+    return FontProperties(fname='/System/Library/Fonts/PingFang.ttc',size=15) 
 
 def decode_from_tfrecords(filename, is_batch):
     filename_queue = tf.train.string_input_producer([filename], num_epochs=None) #读入流中
@@ -62,7 +66,7 @@ def test_tfrecord(filename, is_batch):
                                                           min_after_dequeue=min_after_dequeue)
     return data, label    
 
-_epoch = 1
+_epoch = 600
 _tran_day = 30
 _feature_day = 13
 _batch = tf.placeholder(tf.int32 , [], name='batch')
@@ -302,13 +306,15 @@ merged_summary = tf.summary.merge_all()
 def load(idx, id, name):
     #if id != '600009':
     #    return
+    #mpl.rcParams['font.sans-serif'] = ['PingFang']
+    mpl.rcParams['axes.unicode_minus'] = False
     print('proc %d, %s, %s'%(idx, id, name))
     filenames = ['./data/%s_train.tfrecord'% id]
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_data)
     dataset.shuffle(buffer_size=10000)
     #dataset = dataset.repeat(_epoch)
-    dataset = dataset.batch(20)
+    dataset = dataset.batch(50)
     #dataset = dataset.padded_batch(_batch, padded_shapes=[None])
 
     iterator = dataset.make_initializable_iterator() # dataset.make_one_shot_iterator()
@@ -329,6 +335,13 @@ def load(idx, id, name):
     #tf.summary.scalar('mae', mae)
     #merged_summary = tf.summary.merge_all()
 
+    dataset_eval = tf.data.TFRecordDataset('./data/%s_test.tfrecord'%(id) )
+    dataset_eval = dataset_eval.map(_parse_data)
+    dataset_eval = dataset_eval.batch(1)
+    dataset_eval = dataset_eval.repeat(1)
+    iterator_eval = dataset_eval.make_one_shot_iterator()
+    next_element_eval = iterator_eval.get_next()
+
     X = None
     Y = None
     '''for i in range(1):
@@ -337,6 +350,11 @@ def load(idx, id, name):
 
     out_mse = []
     loss_list = []
+    font = {'family': 'serif',
+        'color':  'darkred',
+        'weight': 'normal',
+        'size': 16,
+        }
     with tf.Session() as sess:
         sess.run(init)
         writer = tf.summary.FileWriter('./data/log/%s/'%(id), sess.graph) #save graph
@@ -350,13 +368,13 @@ def load(idx, id, name):
                     #print(X.shape)
                     #X = tf.cast(X,tf.float32)
                     #Y = tf.cast(Y,tf.float32)
-                    if X.shape[0] != 20:
-                        continue
+                    #if X.shape[0] != 20:
+                    #    continue
 
                     #print(X.shape)
                     #print(Y.shape)
                     #
-                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y, _batch:20, _intrans: True} )
+                    loss_val, _ = sess.run( [loss, op], feed_dict={_X: X, _Y: Y, _batch:X.shape[0], _intrans: True} )
                     '''i = i + 1
                     if (i % 100) == 0:
                         loaa_val = sess.run( [loss], feed_dict={_X: X, _Y: Y} )
@@ -371,11 +389,11 @@ def load(idx, id, name):
                             X_test = X_test.astype(np.float32)
                             Y_test = Y_test.astype(np.float32)
                             #print(X_test.shape)
-                            if X_test.shape[0] != 20:
-                                continue
+                            #if X_test.shape[0] != 20:
+                            #    continue
 
                             
-                            mse_val, summary_val = sess.run( [mse, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _batch:20, _intrans: False} )
+                            mse_val, summary_val = sess.run( [mse, merged_summary], feed_dict={_X: X_test, _Y: Y_test, _batch:X_test.shape[0], _intrans: False} )
                             mse_list.append(mse_val)
                         except tf.errors.OutOfRangeError:
                             iterator_test = dataset_test.make_one_shot_iterator()
@@ -396,6 +414,50 @@ def load(idx, id, name):
         plt.plot( loss_list, color='red' )
         plt.savefig('./data/log/%s/out.png'%(id) )
         plt.close(img)
+
+        pre_vals = None
+        real_vals = None
+        while True:
+            try:
+                X_eval, Y_eval = sess.run(next_element_eval)
+                X_eval = X_eval.astype(np.float32)
+                Y_eval = Y_eval.astype(np.float32)
+                if pre_vals is None:
+                    pre_vals = sess.run( [pre], feed_dict={_X: X_eval, _batch: 1} )
+                    real_vals = Y_eval
+                else:
+                    out_vals = sess.run( [pre], feed_dict={_X: X_eval, _batch: 1} )
+                    pre_vals = np.row_stack( (pre_vals, out_vals) )
+                    real_vals = np.row_stack( (real_vals, Y_eval) ) 
+                
+            except tf.errors.OutOfRangeError:
+                pre_vals = np.reshape( pre_vals, [-1, 4] )
+                real_vals = np.reshape( real_vals, [-1, 4] )
+                mse_out = np.dot(pre_vals.T, real_vals)
+                #print(pre_vals)
+                #print(real_vals)
+                title = [{'title':u'最低价'},{'title':u'最高价'},{'title':u'收盘价'},{'title':'ma5'}]
+                i = 0
+                for ele in title:
+                    #print(ele['title'])
+                    img = plt.figure( figsize=(19,10) )
+                    t = np.arange(pre_vals.shape[0])
+                    plt.plot(t,  real_vals[:,i], 'r.', linewidth=2, label=u'真实值')
+                    plt.plot(t, pre_vals[:,i], 'g--', alpha=0.6, linewidth=1, label=u'预测值')
+                    plt.grid()
+                    #plt.show()
+                    legend = plt.legend(shadow=True, fontsize='x-large', prop=getChineseFont() )
+                    diff = '%.3f' % mse_out[i,i]
+                    label = '{}({})-{} 均方误差:{}'.format(name, id, ele['title'], diff )
+                    plt.title(label, fontproperties=getChineseFont() )
+                    #print(mse_out[i,i])
+                    #mse_str = 'mse:{}'.format(mse_out[i,i])
+                    #plt.text(5, 0.0, mse_str, fontdict=font)
+                    # Put a nicer background color on the legend.
+                    #legend.get_frame().set_facecolor('#00FFCC')
+                    plt.savefig('./data/log/%s/%d.png'%(id,i) )
+                    i = i + 1
+                break
 
         
     #return X, Y
@@ -438,15 +500,15 @@ def preval(idx, id, name):
                 real_vals = np.reshape( real_vals, [-1, 4] )
                 #print(pre_vals)
                 #print(real_vals)
-                img, ax = plt.subplots()
+                img = plt.figure( figsize=(19,10) )
                 t = np.arange(pre_vals.shape[0])
-                ax.plot(t,  real_vals[:,0], 'r-', linewidth=1, label='real')
-                ax.plot(t, pre_vals[:,0], 'g.', alpha=0.6, linewidth=2, label='pre')
+                plt.plot(t,  real_vals[:,0], 'r.', linewidth=2, label='真实值')
+                plt.plot(t, pre_vals[:,0], 'g-', alpha=0.6, linewidth=1, label='预测值')
                 plt.grid()
                 #plt.show()
-                legend = ax.legend(loc='upper center', shadow=True, fontsize='x-large')
+                legend = plt.legend(shadow=True, fontsize='x-large')
                 # Put a nicer background color on the legend.
-                legend.get_frame().set_facecolor('#00FFCC')
+                #legend.get_frame().set_facecolor('#00FFCC')
                 plt.savefig('./data/log/%s/low_price.png'%(id) )
                 break
 
@@ -462,5 +524,5 @@ if __name__ == '__main__':
         marks = json.load(fp = f)
         for item in marks:
             load(idx, item['id'], item['name'] )
-            preval(idx, item['id'], item['name'])
+            #preval(idx, item['id'], item['name'])
             idx = idx + 1

@@ -436,6 +436,7 @@ def load(idx, id, name):
                 pre_vals = np.reshape( pre_vals, [-1, 4] )
                 real_vals = np.reshape( real_vals, [-1, 4] )
                 mse_out = np.dot(pre_vals.T, real_vals)
+                mse_out = mse_out / real_vals.shape[0]
                 #print(pre_vals)
                 #print(real_vals)
                 title = [{'title':u'最低价'},{'title':u'最高价'},{'title':u'收盘价'},{'title':'ma5'}]
@@ -474,6 +475,7 @@ def load(idx, id, name):
                     writer.writerow(csv_row)
                     pass
                 break
+    tf.reset_default_graph()
 
         
     #return X, Y
@@ -527,6 +529,7 @@ def preval(idx, id, name):
                 #legend.get_frame().set_facecolor('#00FFCC')
                 plt.savefig('./data/log/%s/low_price.png'%(id) )                
                 break
+    tf.reset_default_graph()
 
 
 if __name__ == '__main__':

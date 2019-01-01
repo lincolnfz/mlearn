@@ -9,6 +9,8 @@ import matplotlib as mpl
 from matplotlib.font_manager import FontProperties
 import json
 import csv
+import sys
+import getopt
 
 def getChineseFont():  
     #return FontProperties(fname='/System/Library/Fonts/PingFang.ttc',size=15)
@@ -305,7 +307,7 @@ tf.summary.scalar('loss', loss)
 tf.summary.scalar('mse', mse)
 merged_summary = tf.summary.merge_all()
 
-def load(idx, id, name):
+def load(idx, total, id, name):
     #if id != '600009':
     #    return
     #mpl.rcParams['font.sans-serif'] = ['PingFang']
@@ -403,7 +405,7 @@ def load(idx, id, name):
                             break
                     
                     mse_mean = np.mean( np.array(mse_list) )
-                    print('idx: %d, name: %s, epoch: (%d / %d), loss: %f, mse: %f' % (idx, name, i+1, _epoch, loss_val, mse_mean))
+                    print('idx: %d/%d, name: %s, epoch: (%d / %d), loss: %f, mse: %f' % (idx, total, name, i+1, _epoch, loss_val, mse_mean))
                     out_mse.append(mse_mean)
                     loss_list.append(loss_val)
                     writer.add_summary( summary_val, i+1 )
@@ -539,10 +541,14 @@ if __name__ == '__main__':
     #tfcord()
     #load()
     #load(1, '600025', 'aa' )
-    idx = 1
+    '''idx = 1
     with open('./data/total.json', 'r') as f:
         marks = json.load(fp = f)
         for item in marks:
             load(idx, item['id'], item['name'] )
             #preval(idx, item['id'], item['name'])
-            idx = idx + 1
+            idx = idx + 1'''
+    
+    id = sys.argv[1]
+    name = sys.argv[2]
+    print(id, name)
